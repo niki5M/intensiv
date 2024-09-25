@@ -1,0 +1,48 @@
+{
+  "project_info": {
+    "project_number": "961127477456",
+    "project_id": "intensiv-7750c",
+    "storage_bucket": "intensiv-7750c.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:961127477456:android:79c4979262b6b16159eed5",
+        "android_client_info": {
+          "package_name": "com.example.intensiv_wise"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyB6AFkQ5A3rvEyQiZuA_eAmp9xURhA-PRw"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:961127477456:android:09fa6adff538a20259eed5",
+        "android_client_info": {
+          "package_name": "com.example.intensiv_wise"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyB6AFkQ5A3rvEyQiZuA_eAmp9xURhA-PRw"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
