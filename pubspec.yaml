@@ -64,11 +64,12 @@ flutter:
   # included with your application, so that you can use the icons in
   # the material Icons class.
   uses-material-design: true
-assets:
-  - assets/images/budget_background.png
-  # To add assets to your application, add an assets section, like this:
-  # assets:
-  #   - images/a_dot_burr.jpeg
+  assets:
+
+  - assets/images/sign.png
+  - assets/images/sss.png
+  - assets/images/sss2.png
+  - assets/images/lll.png
   #   - images/a_dot_ham.jpeg
 
   # An image asset can refer to one or more resolution-specific "variants", see

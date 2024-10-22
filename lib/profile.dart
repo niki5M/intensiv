@@ -156,125 +156,87 @@ class ProfilePageState extends State<ProfilePage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-        backgroundColor: Colors.black, // Черный фон для всего экрана
-        body: SingleChildScrollView( // Добавлено для прокрутки
+      backgroundColor: const Color(0xFF1A1A2E), // Темно-фиолетовый фон
+      body: SingleChildScrollView(
         child: Column(
-        children: [
-        Padding(
-        padding: EdgeInsets.only(top: topPadding),
-    child: Row(
-    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-    children: [
-    const SizedBox(width: 48), // Отступ слева для выравнивания
-    // Кнопка выхода
-    IconButton(
-    icon: const Icon(Icons.logout, color: Color(0xFF00BCBC)),
-    onPressed: _signOut,
-    ),
-    ],
-    ),
-    ),
-    const SizedBox(height: 20), // Дополнительный отступ
-    // Надпись DiscountKeeper
-    RichText(
-    text: const TextSpan(
-    children: [
-    TextSpan(
-    text: 'Spend',
-    style: TextStyle(
-    fontFamily: 'Montserrat',
-    fontWeight: FontWeight.w800,
-    fontSize: 43,
-    color: Color(0xFF00BCBC),
-    shadows: [
-    Shadow(
-    offset: Offset(2, 2),
-    blurRadius: 10,
-    color: Colors.black54,
-    ),
-    ],
-    ),
-    ),
-    TextSpan(
-    text: 'Wise',
-    style: TextStyle(
-    fontFamily: 'Montserrat',
-    fontWeight: FontWeight.w800,
-    fontSize: 43,
-    color: Colors.white,
-    shadows: [
-    Shadow(
-    offset: Offset(2, 2),
-    blurRadius: 10,
-    color: Colors.black54,
-    ),
-    ],
-    ),
-    ),
-    ],
-    ),
-    textAlign: TextAlign.center,
-    ),
-    const SizedBox(height: 20), // Дополнительный отступ
-    SizedBox(
-    height: 120,
-    child: Center(
-    child: Padding(
-    padding: const EdgeInsets.symmetric(horizontal: 16.0),
-    child: Column(
-    mainAxisAlignment: MainAxisAlignment.center,
-    children: [
-    RichText(
-    text: TextSpan(
-    children: [
-    const TextSpan(
-    text: 'Профиль, ',
-    style: TextStyle(
-    color: Colors.white,
-    fontFamily: 'Montserrat',
-    fontWeight: FontWeight.bold,
-    fontSize: 22,
-    ),
-    ),
-    TextSpan(
-    text: nickname, // Никнейм пользователя
-      style: const TextStyle(
-        color: Color(0xFF00BCBC), // Цвет никнейма
-        fontFamily: 'Montserrat',
-        fontWeight: FontWeight.bold,
-        fontSize: 22,
-      ),
-    ),
-    ],
-    ),
-    ),
-      const SizedBox(height: 8),
-
-    ],
-    ),
-    ),
-    ),
-    ),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16.0),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                _buildProfileImage(),
-                SizedBox(height: profileFieldSpacing),
-                _buildProfileField('Ваша почта', email),
-                SizedBox(height: profileFieldSpacing),
-                _buildProfileField('Дата создания аккаунта', creationDate),
-                SizedBox(height: profileFieldSpacing),
-                _buildNicknameField(),
-              ],
+          children: [
+            Padding(
+              padding: EdgeInsets.only(top: topPadding),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const SizedBox(width: 48), // Отступ слева для выравнивания
+                  // Кнопка выхода
+                  IconButton(
+                    icon: const Icon(Icons.logout, color: Color(0xFFBB86FC)), // Фиолетовый цвет
+                    onPressed: _signOut,
+                  ),
+                ],
+              ),
             ),
-          ),
-          SizedBox(height: actionButtonSpacing),
-          _buildSaveButton(),
-        ],
+            const SizedBox(height: 20), // Дополнительный отступ
+            // Надпись DiscountKeeper
+            RichText(
+              text: const TextSpan(
+                children: [
+                  TextSpan(
+                    text: 'Spend',
+                    style: TextStyle(
+                      fontFamily: 'Montserrat',
+                      fontWeight: FontWeight.w800,
+                      fontSize: 43,
+                      color: Color(0xFFBB86FC), // Фиолетовый цвет
+                      shadows: [
+                        Shadow(
+                          offset: Offset(2, 2),
+                          blurRadius: 10,
+                          color: Colors.black54,
+                        ),
+                      ],
+                    ),
+                  ),
+                  TextSpan(
+                    text: 'Wise',
+                    style: TextStyle(
+                      fontFamily: 'Montserrat',
+                      fontWeight: FontWeight.w800,
+                      fontSize: 43,
+                      color: Colors.white,
+                      shadows: [
+                        Shadow(
+                          offset: Offset(2, 2),
+                          blurRadius: 10,
+                          color: Colors.black54,
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 20), // Дополнительный отступ
+
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16.0),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _buildProfileImage(),
+                  SizedBox(height: profileFieldSpacing),
+                  _buildProfileField('Ваша почта', email),
+                  SizedBox(height: profileFieldSpacing),
+                  _buildProfileField('Дата создания аккаунта', creationDate),
+                  SizedBox(height: profileFieldSpacing),
+                  _buildNicknameField(),
+                ],
+              ),
+            ),
+            SizedBox(height: actionButtonSpacing),
+            _buildSaveButton(),
+          ],
         ),
-        ),
+      ),
     );
   }
 
@@ -282,7 +244,7 @@ class ProfilePageState extends State<ProfilePage> {
     return GestureDetector(
       onTap: _pickImage,
       child: CircleAvatar(
-        radius: 75 ,
+        radius: 75,
         backgroundImage: _selectedImage != null
             ? FileImage(_selectedImage!)
             : (profileImageUrl.isNotEmpty ? NetworkImage(profileImageUrl) : null) as ImageProvider?,
@@ -324,6 +286,7 @@ class ProfilePageState extends State<ProfilePage> {
       ],
     );
   }
+
   Widget _buildNicknameField() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -353,10 +316,10 @@ class ProfilePageState extends State<ProfilePage> {
                 color: Colors.white54,
               ),
               enabledBorder: UnderlineInputBorder(
-                borderSide: BorderSide(color: Color(0xFF00BCBC)),
+                borderSide: BorderSide(color: Color(0xFFBB86FC)), // Фиолетовый цвет
               ),
               focusedBorder: UnderlineInputBorder(
-                borderSide: BorderSide(color: Color(0xFF00BCBC)),
+                borderSide: BorderSide(color: Color(0xFFBB86FC)), // Фиолетовый цвет
               ),
             ),
           ),
@@ -378,7 +341,7 @@ class ProfilePageState extends State<ProfilePage> {
         height: 53,
         decoration: BoxDecoration(
           gradient: const LinearGradient(
-            colors: [Color(0xFF5AF4F4), Color(0xFF008E8E)], // Градиент для кнопки
+            colors: [Color(0xFFBB86FC), Color(0xFF6200EA)], // Градиент для кнопки
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
           ),
@@ -391,7 +354,7 @@ class ProfilePageState extends State<ProfilePage> {
             ),
           ],
         ),
-        child: Center( // Добавлено Center для центрирования текста
+        child: Center(
           child: const Text(
             'Сохранить изменения',
             style: TextStyle(

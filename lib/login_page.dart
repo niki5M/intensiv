@@ -3,6 +3,7 @@ import 'package:crypto/crypto.dart'; // Для хеширования парол
 import 'package:cloud_firestore/cloud_firestore.dart'; // Firestore
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart'; // Firebase Auth
+import 'package:shared_preferences/shared_preferences.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -11,24 +12,69 @@ class LoginPage extends StatefulWidget {
   LoginPageState createState() => LoginPageState();
 }
 
+bool _isPasswordVisible = false;
+
 class LoginPageState extends State<LoginPage> {
   final TextEditingController _loginController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
+  final TextEditingController _confirmPasswordController = TextEditingController(); // Контроллер для подтверждения пароля
   bool _isLoading = false;
   bool _isLoginMode = true; // Переменная для отслеживания режима (вход/регистрация)
+
+  @override
+  void initState() {
+    super.initState();
+    _checkSession(); // Проверяем сессию при запуске
+  }
 
   @override
   void dispose() {
     _loginController.dispose();
     _passwordController.dispose();
+    _confirmPasswordController.dispose(); // Освобождаем контроллер
     super.dispose();
+  }
+
+  // Проверяем наличие сохраненной сессии и автоматически входим в аккаунт
+  Future<void> _checkSession() async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    String? userEmail = prefs.getString('userEmail');
+
+    if (userEmail != null) {
+      // Если сохранен email, пытаемся автоматически войти в систему
+      setState(() {
+        _isLoading = true;
+      });
+
+      try {
+        User? currentUser = FirebaseAuth.instance.currentUser;
+        if (currentUser != null) {
+          // Пользователь уже аутентифицирован
+          Navigator.pushNamed(context, '/home');
+        }
+      } catch (e) {
+        _showErrorSnackBar('Ошибка автоматического входа: ${e.toString()}');
+      } finally {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
+  }
+
+  // Метод для выхода из аккаунта и удаления сохраненной сессии
+  Future<void> _logout() async {
+    await FirebaseAuth.instance.signOut();
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    await prefs.remove('userEmail'); // Удаляем сохраненный email
+    Navigator.pushNamedAndRemoveUntil(context, '/login', (route) => false);
   }
 
   // Метод для хеширования пароля
   String _hashPassword(String password) {
-    var bytes = utf8.encode(password); // Преобразуем пароль в байты
-    var digest = sha256.convert(bytes); // Хешируем с помощью SHA-256
-    return digest.toString(); // Преобразуем хеш в строку
+    var bytes = utf8.encode(password);
+    var digest = sha256.convert(bytes);
+    return digest.toString();
   }
 
   // Метод для проверки формата email
@@ -38,9 +84,12 @@ class LoginPageState extends State<LoginPage> {
     return regex.hasMatch(email);
   }
 
+  // Метод для отправки данных для входа или регистрации
   Future<void> _submitLogin() async {
     String email = _loginController.text.trim();
     String password = _passwordController.text.trim();
+    String confirmPassword = _confirmPasswordController.text
+        .trim(); // Получаем подтвержденный пароль
 
     if (email.isEmpty || password.isEmpty) {
       _showErrorSnackBar('Пожалуйста, введите email и пароль.');
@@ -57,31 +106,43 @@ class LoginPageState extends State<LoginPage> {
       return;
     }
 
+    if (!_isLoginMode &&
+        password != confirmPassword) { // Проверка на соответствие паролей
+      _showErrorSnackBar('Пароли не совпадают.');
+      return;
+    }
+
     setState(() {
       _isLoading = true;
     });
 
     try {
       if (_isLoginMode) {
-        // Выход из текущего аккаунта перед новой попыткой входа
         await FirebaseAuth.instance.signOut();
         await FirebaseAuth.instance.signInWithEmailAndPassword(
           email: email,
           password: password,
         );
 
-        // Печать информации о текущем пользователе
-        print('User logged in: ${FirebaseAuth.instance.currentUser?.email}');
+        // Сохраняем сессию пользователя
+        SharedPreferences prefs = await SharedPreferences.getInstance();
+        await prefs.setString('userEmail', email);
 
+        print('User logged in: ${FirebaseAuth.instance.currentUser?.email}');
         Navigator.pushNamed(context, '/home');
       } else {
-        UserCredential userCredential = await FirebaseAuth.instance.createUserWithEmailAndPassword(
+        UserCredential userCredential = await FirebaseAuth.instance
+            .createUserWithEmailAndPassword(
           email: email,
           password: password,
         );
 
         String uid = userCredential.user?.uid ?? '';
         await _addUserToFirestore(email, _hashPassword(password), uid);
+
+        // Сохраняем сессию пользователя
+        SharedPreferences prefs = await SharedPreferences.getInstance();
+        await prefs.setString('userEmail', email);
 
         Navigator.pushNamed(context, '/home');
       }
@@ -105,15 +166,16 @@ class LoginPageState extends State<LoginPage> {
   }
 
   // Метод для добавления пользователя в Firestore
-  Future<void> _addUserToFirestore(String email, String hashedPassword, String uid) async {
-    CollectionReference customers = FirebaseFirestore.instance.collection('customers');
+  Future<void> _addUserToFirestore(String email, String hashedPassword,
+      String uid) async {
+    CollectionReference customers = FirebaseFirestore.instance.collection(
+        'customers');
 
     try {
-      // Добавляем нового пользователя с UID
       await customers.doc(uid).set({
         'email': email,
         'hashedPassword': hashedPassword,
-        'createdAt': FieldValue.serverTimestamp(), // Добавляем метку времени
+        'createdAt': FieldValue.serverTimestamp(),
       });
     } catch (e) {
       _showErrorSnackBar('Ошибка при сохранении данных: ${e.toString()}');
@@ -131,65 +193,53 @@ class LoginPageState extends State<LoginPage> {
   void _toggleMode() {
     setState(() {
       _isLoginMode = !_isLoginMode;
+      // Сбрасываем контроллер подтверждения пароля при переключении режимов
+      _confirmPasswordController.clear();
     });
   }
 
   @override
   Widget build(BuildContext context) {
-    final width = MediaQuery.of(context).size.width;
-    final isKeyboardVisible = MediaQuery.of(context).viewInsets.bottom > 0;
+    final width = MediaQuery
+        .of(context)
+        .size
+        .width;
+    final isKeyboardVisible = MediaQuery
+        .of(context)
+        .viewInsets
+        .bottom > 0;
 
     return Scaffold(
       backgroundColor: Colors.black,
       body: Stack(
         children: [
           Container(
-            color: Colors.black, // Задний фон просто черный
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  Color(0xFF060808),
+                  Color(0xFF053641),
+                ],
+              ),
+            ),
           ),
           Positioned(
-            top: 100,
+            top: -150,
             left: 0,
-            right: 0,
-            child: Center(
-              child: RichText(
-                text: const TextSpan(
-                  children: [
-                    TextSpan(
-                      text: 'Spend',
-                      style: TextStyle(
-                        fontFamily: 'Montserrat',
-                        fontWeight: FontWeight.w800,
-                        fontSize: 43,
-                        color: Color(0xFF00BCBC),
-                        shadows: [
-                          Shadow(
-                            offset: Offset(2, 2),
-                            blurRadius: 10,
-                            color: Colors.black54,
-                          ),
-                        ],
-                      ),
-                    ),
-                    TextSpan(
-                      text: 'Wise',
-                      style: TextStyle(
-                        fontFamily: 'Montserrat',
-                        fontWeight: FontWeight.w800,
-                        fontSize: 43,
-                        color: Colors.white,
-                        shadows: [
-                          Shadow(
-                            offset: Offset(2, 2),
-                            blurRadius: 10,
-                            color: Colors.black54,
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-                textAlign: TextAlign.center,
-              ),
+            right: -70,
+            child: Image.asset(
+              _isLoginMode
+                  ? 'assets/images/lll.png' // Изображение для режима входа
+                  : 'assets/images/sss.png',
+              // Изображение для режима регистрации
+              width: MediaQuery
+                  .of(context)
+                  .size
+                  .width * 1.1,
+              height: 450,
+              fit: BoxFit.cover,
             ),
           ),
           Center(
@@ -197,43 +247,51 @@ class LoginPageState extends State<LoginPage> {
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 24),
                 child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const SizedBox(height: 20),
+                    const SizedBox(height: 40),
                     if (!isKeyboardVisible) ...[
                       Text(
-                        _isLoginMode ? 'Welcome!' : 'Регистрация',
+                        _isLoginMode ? 'Log in' : 'Sign Up',
                         style: const TextStyle(
-                          fontFamily: 'Montserrat',
-                          fontWeight: FontWeight.w700,
-                          fontSize: 28,
+                          fontFamily: 'Outfit',
+                          fontWeight: FontWeight.w400,
+                          fontSize: 24,
                           color: Colors.white,
                         ),
-                        textAlign: TextAlign.center,
+                        textAlign: TextAlign.left,
                       ),
-                      const SizedBox(height: 8),
-
+                      const SizedBox(height: 4),
                     ],
-                    const SizedBox(height: 32),
-                    _buildTextField(_loginController, 'Логин (Email)'),
+                    const SizedBox(height: 15),
+                    _buildTextField(_loginController, 'Email'),
                     const SizedBox(height: 16),
-                    _buildTextField(_passwordController, 'Пароль', obscureText: true),
+                    _buildTextField(
+                        _passwordController, 'Password', obscureText: true),
+                    if (!_isLoginMode) ...[
+                      // Показываем поле подтверждения пароля только при регистрации
+                      const SizedBox(height: 16),
+                      _buildTextField(
+                          _confirmPasswordController, 'Confirm Password',
+                          obscureText: true),
+                    ],
                     const SizedBox(height: 24),
                     GestureDetector(
                       onTap: () {
-                        FocusScope.of(context).unfocus(); // Скрыть клавиатуру
+                        FocusScope.of(context).unfocus();
                         _submitLogin();
                       },
                       child: AnimatedContainer(
                         duration: const Duration(milliseconds: 200),
                         width: width * 0.85,
-                        height: 53,
+                        height: 65,
                         decoration: BoxDecoration(
                           gradient: const LinearGradient(
-                            colors: [Color(0xFF5AF4F4), Color(0xFF008E8E)], // Градиент для кнопки
-                            begin: Alignment.topCenter,
-                            end: Alignment.bottomCenter,
+                            colors: [Color(0xFF504FFF), Color(0xFFC69EFD)],
+                            begin: Alignment.centerLeft,
+                            end: Alignment.centerRight,
                           ),
-                          borderRadius: BorderRadius.circular(12),
+                          borderRadius: BorderRadius.circular(50),
                           boxShadow: [
                             BoxShadow(
                               color: Colors.black.withOpacity(0.2),
@@ -244,29 +302,34 @@ class LoginPageState extends State<LoginPage> {
                         ),
                         child: Center(
                           child: _isLoading
-                              ? const CircularProgressIndicator(color: Colors.black)
+                              ? const CircularProgressIndicator(
+                              color: Colors.black)
                               : Text(
-                            _isLoginMode ? 'Войти' : 'Регистрация',
+                            _isLoginMode ? 'Log In' : 'Sign Up',
                             style: const TextStyle(
                               fontFamily: 'Montserrat',
                               fontWeight: FontWeight.w600,
-                              fontSize: 16,
-                              color: Colors.black,
+                              fontSize: 15,
+                              color: Colors.white,
                             ),
                           ),
                         ),
                       ),
                     ),
-                    const SizedBox(height: 16),
-                    TextButton(
-                      onPressed: _toggleMode,
-                      child: Text(
-                        _isLoginMode ? 'Еще нет аккаунта? Создать' : 'Уже есть аккаунт? Войти',
-                        style: const TextStyle(
-                          fontFamily: 'Montserrat',
-                          fontWeight: FontWeight.w500,
-                          fontSize: 11,
-                          color: Colors.white,
+                    const SizedBox(height: 0),
+                    Center(
+                      child: TextButton(
+                        onPressed: _toggleMode,
+                        child: Text(
+                          _isLoginMode
+                              ? 'Dont have an account? Sign Up'
+                              : 'Already have an account? Log In',
+                          style: const TextStyle(
+                            fontSize: 14,
+                            fontFamily: 'Montserrat',
+                            fontWeight: FontWeight.w300,
+                            color: Colors.grey,
+                          ),
                         ),
                       ),
                     ),
@@ -280,43 +343,67 @@ class LoginPageState extends State<LoginPage> {
     );
   }
 
-  // Метод для создания полей ввода
-  Widget _buildTextField(TextEditingController controller, String hintText, {bool obscureText = false}) {
-    return Container(
-      width: MediaQuery.of(context).size.width * 0.85,
-      height: 53,
-      decoration: BoxDecoration(
-        color: const Color.fromRGBO(172, 172, 172, 0.29),
-        borderRadius: BorderRadius.circular(14),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.2),
-            offset: const Offset(0, 4),
-            blurRadius: 8,
+  // Метод для создания текстового поля с паролем
+
+  Widget _buildTextField(TextEditingController controller,
+      String label, {
+        bool obscureText = false,
+      }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        TextFormField(
+          controller: controller,
+          obscureText: obscureText ? !_isPasswordVisible : false,
+          style: const TextStyle(
+            color: Colors.grey,
           ),
-        ],
-      ),
-      child: TextField(
-        controller: controller,
-        obscureText: obscureText,
-        style: const TextStyle(
-          fontFamily: 'Montserrat',
-          fontWeight: FontWeight.w500,
-          fontSize: 14,
-          color: Colors.white,
-        ),
-        decoration: InputDecoration(
-          border: InputBorder.none,
-          hintText: hintText,
-          hintStyle: const TextStyle(
-            fontFamily: 'Montserrat',
-            fontWeight: FontWeight.w500,
-            fontSize: 14,
-            color: Color.fromRGBO(172, 172, 172, 0.65),
+          decoration: InputDecoration(
+            labelText: label,
+            suffixIcon: obscureText
+                ? IconButton(
+              icon: Icon(
+                _isPasswordVisible ? Icons.visibility : Icons.visibility_off,
+                color: Colors.grey,
+              ),
+              onPressed: () {
+                setState(() {
+                  _isPasswordVisible = !_isPasswordVisible;
+                });
+              },
+            )
+                : null,
+            labelStyle: const TextStyle(color: Colors.grey, fontSize: 12),
+            enabledBorder: const UnderlineInputBorder(
+              borderSide: BorderSide(
+                  color: Colors.transparent), // Прозрачная нижняя граница
+            ),
+            focusedBorder: const UnderlineInputBorder(
+              borderSide: BorderSide(
+                  color: Colors.transparent), // Прозрачная при фокусе
+            ),
           ),
-          contentPadding: const EdgeInsets.symmetric(horizontal: 16),
         ),
-      ),
+        const SizedBox(height: 4), // Отступ между полем ввода и границей
+        Container(
+          width: MediaQuery
+              .of(context)
+              .size
+              .width * 0.85,
+          height: 2.0, // Высота границы
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [
+                Color(0xFF504FFF), // Начальный цвет градиента
+                Color(0xFFC69EFD), // Конечный цвет градиента
+              ],
+              begin: Alignment.centerLeft,
+              end: Alignment.centerRight,
+            ),
+            borderRadius: BorderRadius.circular(15), // Округление краев границы
+          ),
+        ),
+      ],
     );
   }
 }
