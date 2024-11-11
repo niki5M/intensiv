@@ -5,16 +5,13 @@ import 'package:firebase_storage/firebase_storage.dart';
 import 'package:intensiv_wise/login_page.dart';
 import 'package:intensiv_wise/profile.dart';
 import 'package:intensiv_wise/user_list_page.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import 'firebase_options.dart';
+import 'package:curved_navigation_bar/curved_navigation_bar.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'dart:async';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await Firebase.initializeApp(
-    options: DefaultFirebaseOptions.currentPlatform,
-  );
+  await Firebase.initializeApp();
   runApp(const MyApp());
 }
 
@@ -36,6 +33,7 @@ class MyApp extends StatelessWidget {
         '/home': (context) => const HomePage(),
         '/profile': (context) => const ProfilePage(),
         '/userList': (context) => const UserListPage(),
+        '/splash': (context) => SplashScreen(),
       },
     );
   }
@@ -64,29 +62,7 @@ class _SplashScreenState extends State<SplashScreen> {
   @override
   void initState() {
     super.initState();
-    _checkFirstLaunch();
-  }
-
-  Future<void> _checkFirstLaunch() async {
-    final prefs = await SharedPreferences.getInstance();
-    bool isFirstLaunchFlag = prefs.getBool('isFirstLaunch') ?? true;
-
-    if (isFirstLaunchFlag) {
-      prefs.setBool('isFirstLaunch', false);
-      setState(() {
-        isFirstLaunch = true;
-      });
-    } else {
-      setState(() {
-        isFirstLaunch = false;
-      });
-    }
-  }
-
-  @override
-  void dispose() {
-    _pageController.dispose();
-    super.dispose();
+    FirebaseAuth.instance.signOut(); // Выход из сессии при каждом запуске приложения
   }
 
   // Метод для смены карточки с анимацией
@@ -99,6 +75,12 @@ class _SplashScreenState extends State<SplashScreen> {
       // Переход к экрану авторизации
       Navigator.pushReplacementNamed(context, '/login');
     }
+  }
+
+  @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
   }
 
   @override
@@ -122,7 +104,7 @@ class _SplashScreenState extends State<SplashScreen> {
               Expanded(
                 child: Center(
                   child: AnimatedSwitcher(
-                    duration: const Duration(milliseconds: 300), // Уменьшена длительность анимации
+                    duration: const Duration(milliseconds: 300),
                     transitionBuilder: (Widget child, Animation<double> animation) {
                       return FadeTransition(
                         opacity: animation,
@@ -130,7 +112,7 @@ class _SplashScreenState extends State<SplashScreen> {
                       );
                     },
                     child: Column(
-                      key: ValueKey<int>(_currentPage),  // Уникальный ключ для каждой карточки
+                      key: ValueKey<int>(_currentPage),
                       children: [
                         // Изображение карусели
                         Expanded(
@@ -187,10 +169,10 @@ class _SplashScreenState extends State<SplashScreen> {
                             padding: const EdgeInsets.symmetric(horizontal: 6.0),
                             child: AnimatedContainer(
                               duration: const Duration(milliseconds: 300),
-                              width: _currentPage == index ? 24 : 12, // Увеличены круги
-                              height: 12, // Увеличены круги
+                              width: _currentPage == index ? 24 : 12,
+                              height: 12,
                               decoration: BoxDecoration(
-                                borderRadius: BorderRadius.circular(6.0), // Увеличен радиус
+                                borderRadius: BorderRadius.circular(6.0),
                                 color: _currentPage == index
                                     ? const Color(0xFFFFFFFF)
                                     : const Color(0xFFFFFFFF).withOpacity(0.5),
@@ -208,11 +190,11 @@ class _SplashScreenState extends State<SplashScreen> {
                           gradient: const LinearGradient(
                             begin: Alignment.topLeft,
                             end: Alignment.bottomRight,
-                            colors: [Color(0xFF504FFF), Color(0xFFC69EFD)], // Градиент от слева направо
+                            colors: [Color(0xFF504FFF), Color(0xFFC69EFD)],
                           ),
                         ),
                         child: InkWell(
-                          onTap: _onNextPage, // Добавляем обработку нажатия
+                          onTap: _onNextPage,
                           child: Center(
                             child: Text(
                               _currentPage == cards.length - 1 ? 'Continue' : '>',
@@ -237,7 +219,6 @@ class _SplashScreenState extends State<SplashScreen> {
   }
 }
 
-
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
 
@@ -248,10 +229,11 @@ class HomePage extends StatefulWidget {
 }
 
 class HomePageState extends State<HomePage> {
-  int currentIndex = 0;
+  int _currentIndex = 0; // Индекс выбранной страницы
   List<String> _frontImageUrls = [];
   bool isLoading = true;
   List<Map<String, dynamic>> accounts = [];
+  final PageController _pageController = PageController();
 
   @override
   void initState() {
@@ -335,26 +317,100 @@ class HomePageState extends State<HomePage> {
           isLoading = false;
         });
       }
-    } else {
-      setState(() {
-        _frontImageUrls.clear();
-        isLoading = false;
-      });
     }
+  }
+
+  @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
+  }
+
+  // Виджеты для разных страниц
+  Widget _buildHomePage() {
+    return isLoading
+        ? const Center(child: CircularProgressIndicator())
+        : PageView.builder(
+      controller: _pageController,
+      itemCount: _frontImageUrls.length,
+      itemBuilder: (context, index) {
+        return Image.network(_frontImageUrls[index]);
+      },
+    );
+  }
+
+  Widget _buildUserListPage() {
+    return ListView.builder(
+      itemCount: accounts.length,
+      itemBuilder: (context, index) {
+        return ListTile(
+          title: Text(accounts[index]['ownerName']),
+          subtitle: Text('Balance: ${accounts[index]['balance']}'),
+        );
+      },
+    );
+  }
+
+  Widget _buildProfilePage() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: const [
+          Icon(Icons.person, size: 100, color: Colors.white),
+          SizedBox(height: 10),
+          Text('User Profile', style: TextStyle(fontSize: 24, color: Colors.white)),
+        ],
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: isLoading
-          ? Center(child: CircularProgressIndicator())
-          : Stack(
+      body: Stack(
         children: [
-          PageView.builder(
-            itemCount: _frontImageUrls.length,
-            itemBuilder: (context, index) {
-              return Image.network(_frontImageUrls[index]);
-            },
+          Positioned.fill(
+            child: Container(
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [Color(0xFF060808), Color(0xFF053641)],
+                ),
+              ),
+            ),
+          ),
+          // В зависимости от выбранного индекса показываем разные страницы
+          IndexedStack(
+            index: _currentIndex,
+            children: [
+              _buildHomePage(), // Главная страница
+              _buildUserListPage(), // Страница со списком пользователей
+              _buildProfilePage(), // Страница профиля
+            ],
+          ),
+          Positioned(
+            bottom: 0,
+            left: 0,
+            right: 0,
+            child: CurvedNavigationBar(
+              index: _currentIndex,
+              height: 60.0,
+              items: const <Widget>[
+                Icon(Icons.home, size: 30),
+                Icon(Icons.list, size: 30),
+                Icon(Icons.person, size: 30),
+              ],
+              color: const Color(0xFF060808),
+              buttonBackgroundColor: const Color(0xFF00FFFF),
+              backgroundColor: Colors.transparent,
+              animationDuration: const Duration(milliseconds: 400),
+              onTap: (index) {
+                setState(() {
+                  _currentIndex = index; // Переключаем индекс на выбранную страницу
+                });
+              },
+            ),
           ),
         ],
       ),

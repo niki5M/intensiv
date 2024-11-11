@@ -26,7 +26,7 @@ class ProfilePageState extends State<ProfilePage> {
   double profileFieldSpacing = 25.0;
   double actionButtonSpacing = 20.0;
   double topPadding = 40.0;
-  double profileFieldHeight = 37.0; // Высота полей профиля
+  double profileFieldHeight = 37.0;
 
   @override
   void initState() {
@@ -52,7 +52,7 @@ class ProfilePageState extends State<ProfilePage> {
           _nicknameController.text = nickname;
         });
       } else {
-        // Если данные не существуют, очищаем
+        // Если данных нет, очищаем поля
         setState(() {
           nickname = '';
           profileImageUrl = '';
@@ -90,7 +90,8 @@ class ProfilePageState extends State<ProfilePage> {
     if (confirm == true) {
       try {
         await FirebaseAuth.instance.signOut();
-        Navigator.pushReplacementNamed(context, '/');
+        // Переход на SplashScreen после выхода
+        Navigator.pushReplacementNamed(context, '/splash');
       } catch (e) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Ошибка выхода: $e')),
@@ -137,7 +138,7 @@ class ProfilePageState extends State<ProfilePage> {
 
         await FirebaseFirestore.instance.collection('customers').doc(user.uid).set({
           'cusname': nickname,
-          'profileimg': imageUrl ?? profileImageUrl,
+          'profileimg': imageUrl ?? profileImageUrl,  // если изображение не выбрано, оставляем старое
         }, SetOptions(merge: true));
 
         _logger.info('Профиль успешно сохранен');
@@ -156,7 +157,7 @@ class ProfilePageState extends State<ProfilePage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF1A1A2E), // Темно-фиолетовый фон
+      backgroundColor: const Color(0xFF1A1A2E),
       body: SingleChildScrollView(
         child: Column(
           children: [
@@ -165,17 +166,15 @@ class ProfilePageState extends State<ProfilePage> {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const SizedBox(width: 48), // Отступ слева для выравнивания
-                  // Кнопка выхода
+                  const SizedBox(width: 48),
                   IconButton(
-                    icon: const Icon(Icons.logout, color: Color(0xFFBB86FC)), // Фиолетовый цвет
+                    icon: const Icon(Icons.logout, color: Color(0xFFBB86FC)),
                     onPressed: _signOut,
                   ),
                 ],
               ),
             ),
-            const SizedBox(height: 20), // Дополнительный отступ
-            // Надпись DiscountKeeper
+            const SizedBox(height: 20),
             RichText(
               text: const TextSpan(
                 children: [
@@ -185,7 +184,7 @@ class ProfilePageState extends State<ProfilePage> {
                       fontFamily: 'Montserrat',
                       fontWeight: FontWeight.w800,
                       fontSize: 43,
-                      color: Color(0xFFBB86FC), // Фиолетовый цвет
+                      color: Color(0xFFBB86FC),
                       shadows: [
                         Shadow(
                           offset: Offset(2, 2),
@@ -215,7 +214,7 @@ class ProfilePageState extends State<ProfilePage> {
               ),
               textAlign: TextAlign.center,
             ),
-            const SizedBox(height: 20), // Дополнительный отступ
+            const SizedBox(height: 20),
 
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16.0),
@@ -292,7 +291,7 @@ class ProfilePageState extends State<ProfilePage> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const Text(
-          'Ваш никнейм',
+          'Ваше имя',
           style: TextStyle(
             color: Colors.white70,
             fontFamily: 'Montserrat',
@@ -300,27 +299,17 @@ class ProfilePageState extends State<ProfilePage> {
             fontSize: 12,
           ),
         ),
-        SizedBox(
-          height: profileFieldHeight,
-          child: TextField(
-            controller: _nicknameController,
-            style: const TextStyle(
-              color: Colors.white,
-              fontFamily: 'Montserrat',
-              fontWeight: FontWeight.w500,
-              fontSize: 18,
-            ),
-            decoration: const InputDecoration(
-              hintText: 'Введите ваш никнейм',
-              hintStyle: TextStyle(
-                color: Colors.white54,
-              ),
-              enabledBorder: UnderlineInputBorder(
-                borderSide: BorderSide(color: Color(0xFFBB86FC)), // Фиолетовый цвет
-              ),
-              focusedBorder: UnderlineInputBorder(
-                borderSide: BorderSide(color: Color(0xFFBB86FC)), // Фиолетовый цвет
-              ),
+        TextField(
+          controller: _nicknameController,
+          onChanged: (value) => setState(() => nickname = value),
+          decoration: InputDecoration(
+            hintText: 'Введите имя',
+            hintStyle: const TextStyle(color: Colors.white38),
+            filled: true,
+            fillColor: const Color(0xFF1C1C2D),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide.none,
             ),
           ),
         ),
@@ -329,41 +318,13 @@ class ProfilePageState extends State<ProfilePage> {
   }
 
   Widget _buildSaveButton() {
-    final width = MediaQuery.of(context).size.width;
-    return GestureDetector(
-      onTap: () {
-        FocusScope.of(context).unfocus(); // Скрыть клавиатуру
-        _saveProfile(); // Метод для сохранения профиля
-      },
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        width: width * 0.85,
-        height: 53,
-        decoration: BoxDecoration(
-          gradient: const LinearGradient(
-            colors: [Color(0xFFBB86FC), Color(0xFF6200EA)], // Градиент для кнопки
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-          ),
-          borderRadius: BorderRadius.circular(12),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.2),
-              offset: const Offset(0, 4),
-              blurRadius: 8,
-            ),
-          ],
-        ),
-        child: Center(
-          child: const Text(
-            'Сохранить изменения',
-            style: TextStyle(
-              color: Colors.black,
-              fontFamily: 'Montserrat',
-              fontWeight: FontWeight.bold,
-              fontSize: 16,
-            ),
-          ),
+    return ElevatedButton(
+      onPressed: _saveProfile,
+      child: const Text('Сохранить'),
+      style: ElevatedButton.styleFrom(
+        padding: const EdgeInsets.symmetric(vertical: 14.0, horizontal: 80.0), backgroundColor: const Color(0xFFBB86FC),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(25.0),
         ),
       ),
     );
