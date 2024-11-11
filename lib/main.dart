@@ -5,8 +5,10 @@ import 'package:firebase_storage/firebase_storage.dart';
 import 'package:intensiv_wise/login_page.dart';
 import 'package:intensiv_wise/profile.dart';
 import 'package:intensiv_wise/user_list_page.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'firebase_options.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'dart:async';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -29,7 +31,8 @@ class MyApp extends StatelessWidget {
       ),
       initialRoute: '/',
       routes: {
-        '/': (context) => const LoginPage(),
+        '/': (context) => const SplashScreen(),
+        '/login': (context) => const LoginPage(),
         '/home': (context) => const HomePage(),
         '/profile': (context) => const ProfilePage(),
         '/userList': (context) => const UserListPage(),
@@ -37,6 +40,203 @@ class MyApp extends StatelessWidget {
     );
   }
 }
+
+class SplashScreen extends StatefulWidget {
+  const SplashScreen({super.key});
+
+  @override
+  _SplashScreenState createState() => _SplashScreenState();
+}
+
+class _SplashScreenState extends State<SplashScreen> {
+  PageController _pageController = PageController();
+  int _currentPage = 0;
+
+  List<Map<String, String>> cards = [
+    {'title': 'Are you tired of unexpected expenses?', 'image': 'assets/images/h_page.png'},
+    {'title': 'Imagine if you can manage your expenses in two taps', 'image': 'assets/images/h_page2.png'},
+    {'title': 'Or synchronize your bank card with the application', 'image': 'assets/images/h_page3.png'},
+    {'title': 'So, what are you waiting for? Learn to Spend Wisely', 'image': 'assets/images/h_page4.png'},
+  ];
+
+  bool isFirstLaunch = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _checkFirstLaunch();
+  }
+
+  Future<void> _checkFirstLaunch() async {
+    final prefs = await SharedPreferences.getInstance();
+    bool isFirstLaunchFlag = prefs.getBool('isFirstLaunch') ?? true;
+
+    if (isFirstLaunchFlag) {
+      prefs.setBool('isFirstLaunch', false);
+      setState(() {
+        isFirstLaunch = true;
+      });
+    } else {
+      setState(() {
+        isFirstLaunch = false;
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
+  }
+
+  // Метод для смены карточки с анимацией
+  void _onNextPage() {
+    if (_currentPage < cards.length - 1) {
+      setState(() {
+        _currentPage++;
+      });
+    } else {
+      // Переход к экрану авторизации
+      Navigator.pushReplacementNamed(context, '/login');
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: Stack(
+        children: [
+          Positioned.fill(
+            child: Container(
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [Color(0xFF060808), Color(0xFF053641)],
+                ),
+              ),
+            ),
+          ),
+          Column(
+            children: [
+              Expanded(
+                child: Center(
+                  child: AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 300), // Уменьшена длительность анимации
+                    transitionBuilder: (Widget child, Animation<double> animation) {
+                      return FadeTransition(
+                        opacity: animation,
+                        child: child,
+                      );
+                    },
+                    child: Column(
+                      key: ValueKey<int>(_currentPage),  // Уникальный ключ для каждой карточки
+                      children: [
+                        // Изображение карусели
+                        Expanded(
+                          flex: 3,
+                          child: Image.asset(
+                            cards[_currentPage]['image']!,
+                            fit: BoxFit.cover,
+                            width: double.infinity,
+                          ),
+                        ),
+                        const SizedBox(height: 20),
+                        // Текст карусели
+                        Expanded(
+                          flex: 2,
+                          child: Container(
+                            decoration: BoxDecoration(
+                              color: Colors.transparent,
+                              borderRadius: BorderRadius.circular(12.0),
+                              border: Border.all(
+                                color: Colors.white.withOpacity(0.0),
+                                width: 1,
+                              ),
+                            ),
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 25.0, vertical: 12.0),
+                              child: Text(
+                                cards[_currentPage]['title']!,
+                                style: const TextStyle(
+                                  fontSize: 24,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.white,
+                                ),
+                                textAlign: TextAlign.left,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Align(
+                  alignment: Alignment.bottomCenter,
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Row(
+                        children: List.generate(
+                          cards.length,
+                              (index) => Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 6.0),
+                            child: AnimatedContainer(
+                              duration: const Duration(milliseconds: 300),
+                              width: _currentPage == index ? 24 : 12, // Увеличены круги
+                              height: 12, // Увеличены круги
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(6.0), // Увеличен радиус
+                                color: _currentPage == index
+                                    ? const Color(0xFFFFFFFF)
+                                    : const Color(0xFFFFFFFF).withOpacity(0.5),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                      AnimatedContainer(
+                        duration: const Duration(milliseconds: 300),
+                        width: _currentPage == cards.length - 1 ? 200 : 50,
+                        height: 50,
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(25.0),
+                          gradient: const LinearGradient(
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                            colors: [Color(0xFF504FFF), Color(0xFFC69EFD)], // Градиент от слева направо
+                          ),
+                        ),
+                        child: InkWell(
+                          onTap: _onNextPage, // Добавляем обработку нажатия
+                          child: Center(
+                            child: Text(
+                              _currentPage == cards.length - 1 ? 'Continue' : '>',
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -143,228 +343,18 @@ class HomePageState extends State<HomePage> {
     }
   }
 
-  void _onPageChanged(int index) {
-    setState(() {
-      currentIndex = index;
-    });
-  }
-
-  Future<void> _showAddAccountDialog() async {
-    final TextEditingController ownerNameController = TextEditingController();
-    final TextEditingController balanceController = TextEditingController();
-
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: const Text('Add New Account'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: ownerNameController,
-                decoration: const InputDecoration(labelText: 'Owner Name'),
-              ),
-              TextField(
-                controller: balanceController,
-                decoration: const InputDecoration(labelText: 'Balance'),
-                keyboardType: TextInputType.number,
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.of(context).pop(); // Закрыть диалог
-              },
-              child: const Text('Cancel'),
-            ),
-            TextButton(
-              onPressed: () async {
-                // Получаем данные из текстовых полей
-                String ownerName = ownerNameController.text;
-                double? balance = double.tryParse(balanceController.text);
-
-                // Проверяем корректность данных
-                if (ownerName.isNotEmpty && balance != null) {
-                  await _createNewAccount(ownerName, balance);
-                  ownerNameController.clear();
-                  balanceController.clear();
-                  Navigator.of(context).pop(); // Закрыть диалог
-                } else {
-                  // Если данные некорректны, показываем сообщение
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Please enter valid name and balance'),
-                      duration: Duration(seconds: 2),
-                    ),
-                  );
-                }
-              },
-              child: const Text('Add'),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
-  Future<void> _createNewAccount(String ownerName, double balance) async {
-    final user = FirebaseAuth.instance.currentUser;
-
-    if (user != null) {
-      String accountId = user.uid;
-
-      try {
-        await FirebaseFirestore.instance.collection('bankAccounts').add({
-          'accountId': accountId,
-          'ownerName': ownerName,
-          'balance': balance,
-        });
-        _loadAccountsFromFirestore(); // Обновляем список счетов
-      } catch (e) {
-        print('Error creating new account: $e');
-      }
-    }
-  }
-
-  Future<void> _deleteAccount(String accountId) async {
-    try {
-      await FirebaseFirestore.instance
-          .collection('bankAccounts')
-          .doc(accountId)
-          .delete();
-      _loadAccountsFromFirestore(); // Обновляем список счетов
-    } catch (e) {
-      print('Error deleting account: $e');
-    }
-  }
-
-  Widget buildCard(String ownerName, double balance, String accountId) {
-    return Card(
-      color: Colors.deepPurple, // Фиолетовый цвет карточки
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12.0), // Закругление углов
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(16.0), // Отступы внутри карточки
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              ownerName,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 24, // Увеличенный размер шрифта
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 8.0),
-            Text(
-              'Balance: \$${balance.toStringAsFixed(2)}', // Форматирование баланса
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 20, // Увеличенный размер шрифта
-              ),
-            ),
-            const SizedBox(height: 8.0),
-            ElevatedButton(
-              onPressed: () {
-                _deleteAccount(accountId); // Удаляем счет
-              },
-              style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-              child: const Text('Delete'),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
-    final width = MediaQuery.of(context).size.width;
-    final height = MediaQuery.of(context).size.height;
-
     return Scaffold(
-      backgroundColor: Colors.black,
-      body: Stack(
+      body: isLoading
+          ? Center(child: CircularProgressIndicator())
+          : Stack(
         children: [
-          Positioned(
-            top: 0, // Поднимаем карточку выше экрана
-            left: 0,
-            right: 0,
-            height: height * 0.5, // Увеличиваем высоту карточки
-            child: Container(
-              alignment: Alignment.center,
-              child: isLoading
-                  ? const Center(child: CircularProgressIndicator())
-                  : _frontImageUrls.isNotEmpty
-                  ? PageView.builder(
-                itemCount: _frontImageUrls.length,
-                onPageChanged: _onPageChanged,
-                itemBuilder: (context, index) {
-                  return buildCard(
-                    accounts.isNotEmpty
-                        ? accounts[index % accounts.length]['ownerName']
-                        : 'No accounts',
-                    accounts.isNotEmpty
-                        ? accounts[index % accounts.length]['balance']
-                        : 0.0,
-                    accounts.isNotEmpty
-                        ? accounts[index % accounts.length]['id']
-                        : '',
-                  );
-                },
-              )
-                  : const Center(
-                child: Text(
-                  'No images to display.',
-                  style: TextStyle(color: Colors.white),
-                ),
-              ),
-            ),
-          ),
-          Positioned(
-            bottom: 80, // Отступ от нижней панели
-            right: 20,
-            child: FloatingActionButton(
-              onPressed: _showAddAccountDialog,
-              tooltip: 'Add Account',
-              child: const Icon(Icons.add),
-            ),
-          ),
-          Positioned(
-            left: 0,
-            right: 0,
-            bottom: 0,
-            child: Container(
-              color: Colors.deepPurple,
-              padding: const EdgeInsets.all(10),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceAround,
-                children: [
-                  IconButton(
-                    icon: const Icon(Icons.home, color: Colors.white),
-                    onPressed: () {
-                      // Действие для кнопки "Home"
-                    },
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.person, color: Colors.white),
-                    onPressed: () {
-                      Navigator.pushNamed(context, '/profile');
-                    },
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.list, color: Colors.white),
-                    onPressed: () {
-                      Navigator.pushNamed(context, '/userList');
-                    },
-                  ),
-                ],
-              ),
-            ),
+          PageView.builder(
+            itemCount: _frontImageUrls.length,
+            itemBuilder: (context, index) {
+              return Image.network(_frontImageUrls[index]);
+            },
           ),
         ],
       ),
