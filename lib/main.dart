@@ -8,6 +8,7 @@ import 'package:intensiv_wise/user_list_page.dart';
 import 'package:curved_navigation_bar/curved_navigation_bar.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:intl/intl.dart';
+import 'package:intensiv_wise/userHome_page.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -365,123 +366,8 @@ class HomePageState extends State<HomePage> {
     super.dispose();
   }
 
-  Widget _buildHomePage() {
-    return Container(
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [Color(0xFF060808), Color(0xFF053641)],
-        ),
-      ),
-      child: isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : Column(
-        children: [
-          Expanded(
-            child: PageView.builder(
-              controller: _pageController,
-              itemCount: _frontImageUrls.length,
-              itemBuilder: (context, index) {
-                // Отображение карт
-                return Image.network(_frontImageUrls[index]);
-              },
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Создать новый банковский счёт',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                SizedBox(height: 16),
-                TextField(
-                  controller: _accountTypeController,
-                  decoration: InputDecoration(
-                    hintText: 'Тип счёта',
-                    border: OutlineInputBorder(),
-                  ),
-                ),
-                SizedBox(height: 16),
-                TextField(
-                  controller: _balanceController,
-                  keyboardType: TextInputType.number,
-                  decoration: InputDecoration(
-                    hintText: 'Баланс',
-                    border: OutlineInputBorder(),
-                  ),
-                ),
-                SizedBox(height: 16),
-                ElevatedButton(
-                  onPressed: _createBankAccount,
-                  child: Text('Создать счёт'),
-                ),
-                SizedBox(height: 32),
-                Text(
-                  'Ваши банковские счета',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                SizedBox(height: 16),
-                if (accounts.isEmpty)
-                  Center(child: Text('Банковские счета не найдены.'))
-                else
-                  Expanded(
-                    child: ListView.builder(
-                      itemCount: accounts.length,
-                      itemBuilder: (context, index) {
-                        Map<String, dynamic> account = accounts[index];
-                        return Card(
-                          child: Padding(
-                            padding: const EdgeInsets.all(16.0),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  'Тип счёта: ${account['accountType']}',
-                                  style: TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                                SizedBox(height: 8),
-                                Text(
-                                  'Баланс: \$${account['balance'].toStringAsFixed(2)}',
-                                  style: TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                                SizedBox(height: 8),
-                                // Используем форматирование даты для поля 'createdAt'
-                                Text(
-                                  'Создан: ${DateFormat('yyyy-MM-dd').format(account['createdAt'].toDate())}',
-                                  style: TextStyle(
-                                    fontSize: 14,
-                                    color: Colors.grey,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        );
-                      },
-                    ),
-                  ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
+  Widget _buildUserHomePage() {
+    return const UserAccountsPage();
   }
 
   Widget _buildUserListPage() {
@@ -527,7 +413,7 @@ class HomePageState extends State<HomePage> {
           index: _currentIndex,
           children: [
             _buildUserListPage(),
-            _buildHomePage(),
+            _buildUserHomePage(),
             _buildProfilePage(),
           ],
         ),
