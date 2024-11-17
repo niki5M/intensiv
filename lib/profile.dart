@@ -5,6 +5,8 @@ import 'package:image_picker/image_picker.dart';
 import 'package:logging/logging.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:intensiv_wise/Subscription_page.dart'; // Импортируем страницу подписки
+import 'package:intl/intl.dart';
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
@@ -23,6 +25,8 @@ class ProfilePageState extends State<ProfilePage> {
   File? _selectedImage;
   final ImagePicker _picker = ImagePicker();
 
+  String? subscriptionEndDate; // Новое поле для даты окончания подписки
+
   double profileFieldSpacing = 25.0;
   double actionButtonSpacing = 20.0;
   double topPadding = 40.0;
@@ -39,23 +43,28 @@ class ProfilePageState extends State<ProfilePage> {
     if (user != null) {
       setState(() {
         email = user.email ?? '';
-        creationDate = user.metadata.creationTime?.toLocal().toString().split(' ')[0] ?? 'Неизвестно';
+        creationDate =
+            user.metadata.creationTime?.toLocal().toString().split(' ')[0] ??
+                'Неизвестно';
       });
 
-      // Загружаем данные из Firebase каждый раз при входе
-      DocumentSnapshot doc = await FirebaseFirestore.instance.collection('customers').doc(user.uid).get();
+      // Загружаем данные из Firebase
+      DocumentSnapshot doc = await FirebaseFirestore.instance.collection(
+          'customers').doc(user.uid).get();
       if (doc.exists && doc.data() != null) {
         final data = doc.data() as Map<String, dynamic>;
         setState(() {
           nickname = data['cusname'] ?? '';
           profileImageUrl = data['profileimg'] ?? '';
+          subscriptionEndDate = data['subscription_end_date'] ??
+              null; // Получаем дату окончания подписки
           _nicknameController.text = nickname;
         });
       } else {
-        // Если данных нет, очищаем поля
         setState(() {
           nickname = '';
           profileImageUrl = '';
+          subscriptionEndDate = null;
           _nicknameController.clear();
         });
       }
@@ -113,7 +122,9 @@ class ProfilePageState extends State<ProfilePage> {
     try {
       User? user = FirebaseAuth.instance.currentUser;
       if (user != null) {
-        final ref = FirebaseStorage.instance.ref().child('profile_images').child('${user.uid}.jpg');
+        final ref = FirebaseStorage.instance.ref()
+            .child('profile_images')
+            .child('${user.uid}.jpg');
         await ref.putFile(image);
         return await ref.getDownloadURL();
       }
@@ -136,10 +147,22 @@ class ProfilePageState extends State<ProfilePage> {
           imageUrl = await _uploadImage(_selectedImage!);
         }
 
-        await FirebaseFirestore.instance.collection('customers').doc(user.uid).set({
+        // Обновление данных в Firebase
+        await FirebaseFirestore.instance.collection('customers')
+            .doc(user.uid)
+            .set({
           'cusname': nickname,
-          'profileimg': imageUrl ?? profileImageUrl,  // если изображение не выбрано, оставляем старое
+          'profileimg': imageUrl ?? profileImageUrl,
+          // если изображение не выбрано, оставляем старое
         }, SetOptions(merge: true));
+
+        // Обновляем UI, чтобы отобразить изменения
+        setState(() {
+          this.nickname = nickname;
+          if (imageUrl != null) {
+            profileImageUrl = imageUrl;
+          }
+        });
 
         _logger.info('Профиль успешно сохранен');
         ScaffoldMessenger.of(context).showSnackBar(
@@ -154,178 +177,286 @@ class ProfilePageState extends State<ProfilePage> {
     }
   }
 
+  // Переход на страницу подписки
+  Future<void> _goToSubscriptionPage() async {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => SubscriptionPage()),
+    );
+  }
+
+// Открытие диалога изменения профиля
+  void _openEditProfileDialog() {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return Dialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16.0), // Скругленные углы
+          ),
+          backgroundColor: Colors.black, // Черный фон
+          child: Padding(
+            padding: const EdgeInsets.all(20.0),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                GestureDetector(
+                  onTap: _pickImage,
+                  child: CircleAvatar(
+                    radius: 50,
+                    backgroundImage: _selectedImage != null
+                        ? FileImage(_selectedImage!)
+                        : (profileImageUrl.isNotEmpty
+                        ? NetworkImage(profileImageUrl)
+                        : null) as ImageProvider<Object>?,
+                    // Исправлено: правильный тип ImageProvider
+                    child: profileImageUrl.isEmpty && _selectedImage == null
+                        ? const Icon(
+                        Icons.camera_alt, size: 50, color: Colors.white70)
+                        : null,
+                  ),
+                ),
+                const SizedBox(height: 20),
+                TextField(
+                  controller: _nicknameController,
+                  style: const TextStyle(color: Colors.white),
+                  // Белый текст в поле ввода
+                  decoration: InputDecoration(
+                    labelText: 'Имя пользователя',
+                    labelStyle: const TextStyle(color: Colors.white70),
+                    // Светлый цвет для лейбла
+                    enabledBorder: UnderlineInputBorder(
+                      borderSide: const BorderSide(
+                          color: Colors.white70), // Подчеркнутая линия
+                    ),
+                    focusedBorder: UnderlineInputBorder(
+                      borderSide: const BorderSide(
+                          color: Colors.white), // Подчеркнутая линия при фокусе
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 20),
+                // Секции для кнопок "Отмена" и "Сохранить"
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                  children: [
+                    TextButton(
+                      onPressed: () {
+                        Navigator.of(context)
+                            .pop(); // Закрываем диалог без изменений
+                      },
+                      child: const Text(
+                        'Отмена',
+                        style: TextStyle(
+                            color: Colors.white), // Белый текст для кнопки
+                      ),
+                    ),
+                    TextButton(
+                      onPressed: () async {
+                        await _saveProfile(); // Сохраняем изменения
+                        Navigator.of(context).pop(); // Закрываем диалог
+                      },
+                      child: const Text(
+                        'Сохранить',
+                        style: TextStyle(
+                            color: Colors.white), // Белый текст для кнопки
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF1A1A2E),
-      body: SingleChildScrollView(
-        child: Column(
-          children: [
-            Padding(
-              padding: EdgeInsets.only(top: topPadding),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  const SizedBox(width: 48),
-                  IconButton(
-                    icon: const Icon(Icons.logout, color: Color(0xFFBB86FC)),
-                    onPressed: _signOut,
-                  ),
-                ],
+      body: Stack(
+        children: [
+          // Фон с градиентом
+          Container(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [Color(0xFF060808), Color(0xFF053641)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
               ),
             ),
-            const SizedBox(height: 20),
-            RichText(
-              text: const TextSpan(
-                children: [
-                  TextSpan(
-                    text: 'Spend',
-                    style: TextStyle(
-                      fontFamily: 'Montserrat',
-                      fontWeight: FontWeight.w800,
-                      fontSize: 43,
-                      color: Color(0xFFBB86FC),
-                      shadows: [
-                        Shadow(
-                          offset: Offset(2, 2),
-                          blurRadius: 10,
-                          color: Colors.black54,
-                        ),
-                      ],
-                    ),
-                  ),
-                  TextSpan(
-                    text: 'Wise',
-                    style: TextStyle(
-                      fontFamily: 'Montserrat',
-                      fontWeight: FontWeight.w800,
-                      fontSize: 43,
-                      color: Colors.white,
-                      shadows: [
-                        Shadow(
-                          offset: Offset(2, 2),
-                          blurRadius: 10,
-                          color: Colors.black54,
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 20),
-
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16.0),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  _buildProfileImage(),
-                  SizedBox(height: profileFieldSpacing),
-                  _buildProfileField('Ваша почта', email),
-                  SizedBox(height: profileFieldSpacing),
-                  _buildProfileField('Дата создания аккаунта', creationDate),
-                  SizedBox(height: profileFieldSpacing),
-                  _buildNicknameField(),
-                ],
-              ),
-            ),
-            SizedBox(height: actionButtonSpacing),
-            _buildSaveButton(),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildProfileImage() {
-    return GestureDetector(
-      onTap: _pickImage,
-      child: CircleAvatar(
-        radius: 75,
-        backgroundImage: _selectedImage != null
-            ? FileImage(_selectedImage!)
-            : (profileImageUrl.isNotEmpty ? NetworkImage(profileImageUrl) : null) as ImageProvider?,
-        child: profileImageUrl.isEmpty && _selectedImage == null
-            ? const Icon(Icons.camera_alt, size: 50, color: Colors.white70)
-            : null,
-      ),
-    );
-  }
-
-  Widget _buildProfileField(String label, String value) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          label,
-          style: const TextStyle(
-            color: Colors.white70,
-            fontFamily: 'Montserrat',
-            fontWeight: FontWeight.bold,
-            fontSize: 12,
           ),
-        ),
-        SizedBox(
-          height: profileFieldHeight,
-          child: Align(
-            alignment: Alignment.centerLeft,
-            child: Text(
-              value,
-              style: const TextStyle(
+
+          // Фон с изображением
+          Positioned(
+            top: -220,
+            left: 80,
+            right: 0,
+            child: Image.asset(
+              'assets/images/prof.png',
+              width: MediaQuery
+                  .of(context)
+                  .size
+                  .width,
+              height: 700,
+              fit: BoxFit.cover,
+            ),
+          ),
+
+          // Контейнер с содержимым
+          Container(
+            padding: const EdgeInsets.all(16.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                SizedBox(height: 150),
+                // Отступ для аватара
+                Center(
+                  child: GestureDetector(
+                    onTap: _pickImage,
+                    child: CircleAvatar(
+                      radius: 70,
+                      backgroundImage: _selectedImage != null
+                          ? FileImage(_selectedImage!)
+                          : (profileImageUrl.isNotEmpty
+                          ? NetworkImage(profileImageUrl)
+                          : null) as ImageProvider?,
+                      child: profileImageUrl.isEmpty && _selectedImage == null
+                          ? const Icon(
+                          Icons.camera_alt, size: 50, color: Colors.white70)
+                          : null,
+                    ),
+                  ),
+                ),
+                SizedBox(height: 16.0),
+
+                // Имя пользователя и кнопка редактирования
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      nickname.isNotEmpty ? nickname : 'Без имени',
+                      style: TextStyle(
+                        fontSize: 22,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.edit, color: Colors.white),
+                      onPressed: _openEditProfileDialog,
+                    ),
+                  ],
+                ),
+
+                // Электронная почта и дата регистрации
+                SizedBox(height: 20.0),
+                Text(
+                  'Email: $email',
+                  style: TextStyle(color: Colors.white, fontSize: 16),
+                ),
+                SizedBox(height: 50.0),
+
+                SizedBox(height: profileFieldSpacing),
+
+    // Лозунг перед кнопкой премиума
+    subscriptionEndDate != null
+    ? Text(
+    'Ваша подписка действует до: ${DateFormat('dd.MM.yyyy').format(DateTime.parse(subscriptionEndDate!))}',
+    style: TextStyle(
+    fontSize: 18,
+    fontWeight: FontWeight.w300,
+    color: Color(0x99FFFFFF),
+    ),
+    )
+        : Text(
+    'Получите дополнительные возможности с премиум-аккаунтом!',
+    style: TextStyle(
+    fontSize: 18,
+    fontWeight: FontWeight.w300,
+    color: Color(0x99FFFFFF),
+    ),
+    ),
+
+                SizedBox(height: actionButtonSpacing),
+
+                // Кнопка Premium, растянутая по ширине
+                Center(
+                  child: ElevatedButton(
+                    style: ButtonStyle(
+                      backgroundColor: MaterialStateProperty.all(
+                          Colors.transparent),
+                      elevation: MaterialStateProperty.all(0),
+                      shape: MaterialStateProperty.all(RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(50),
+                      )),
+                      padding: MaterialStateProperty.all(
+                          EdgeInsets.symmetric(vertical: 20)),
+                      minimumSize: MaterialStateProperty.all(
+                          Size(double.infinity, 50)),
+                    ),
+                    onPressed: _goToSubscriptionPage,
+                    child: Ink(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [Color(0xFFE0044D), Color(0xFFF24E67)],
+                          begin: Alignment.centerLeft,
+                          end: Alignment.centerRight,
+                        ),
+                        borderRadius: BorderRadius.circular(50),
+                      ),
+                      child: Container(
+                        alignment: Alignment.center,
+                        child: Text(
+                          'Premium',
+                          style: TextStyle(
+                            fontSize: 22,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+
+                SizedBox(height: 60), // Отступ перед кнопкой выхода
+              ],
+            ),
+          ),
+
+          // Кнопка выхода расположена внизу, прямо над панелью навигации
+          Positioned(
+            bottom: 45,
+            right: -15, // Устанавливаем отступ от правого края
+            child: ElevatedButton.icon(
+              style: ButtonStyle(
+                backgroundColor: MaterialStateProperty.all(Colors.transparent),
+                elevation: MaterialStateProperty.all(0),
+                shape: MaterialStateProperty.all(RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(50),
+                )),
+                padding: MaterialStateProperty.all(
+                    EdgeInsets.symmetric(vertical: 18, horizontal: 40)),
+              ),
+              onPressed: _signOut,
+              icon: Icon(
+                Icons.exit_to_app,
                 color: Colors.white,
-                fontFamily: 'Montserrat',
-                fontWeight: FontWeight.w500,
-                fontSize: 18,
+                size: 24,
+              ),
+              label: Text(
+                'Выйти',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w400,
+                  color: Colors.white,
+                ),
               ),
             ),
           ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildNicknameField() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text(
-          'Ваше имя',
-          style: TextStyle(
-            color: Colors.white70,
-            fontFamily: 'Montserrat',
-            fontWeight: FontWeight.bold,
-            fontSize: 12,
-          ),
-        ),
-        TextField(
-          controller: _nicknameController,
-          onChanged: (value) => setState(() => nickname = value),
-          decoration: InputDecoration(
-            hintText: 'Введите имя',
-            hintStyle: const TextStyle(color: Colors.white38),
-            filled: true,
-            fillColor: const Color(0xFF1C1C2D),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide.none,
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildSaveButton() {
-    return ElevatedButton(
-      onPressed: _saveProfile,
-      child: const Text('Сохранить'),
-      style: ElevatedButton.styleFrom(
-        padding: const EdgeInsets.symmetric(vertical: 14.0, horizontal: 80.0), backgroundColor: const Color(0xFFBB86FC),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(25.0),
-        ),
+        ],
       ),
     );
   }

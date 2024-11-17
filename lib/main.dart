@@ -7,7 +7,7 @@ import 'package:intensiv_wise/profile.dart';
 import 'package:intensiv_wise/user_list_page.dart';
 import 'package:curved_navigation_bar/curved_navigation_bar.dart';
 import 'package:firebase_core/firebase_core.dart';
-import 'dart:async';
+import 'package:intl/intl.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -33,7 +33,7 @@ class MyApp extends StatelessWidget {
         '/home': (context) => const HomePage(),
         '/profile': (context) => const ProfilePage(),
         '/userList': (context) => const UserListPage(),
-        '/splash': (context) => SplashScreen(),
+        '/splash': (context) => const SplashScreen(),
       },
     );
   }
@@ -57,15 +57,12 @@ class _SplashScreenState extends State<SplashScreen> {
     {'title': 'So, what are you waiting for? Learn to Spend Wisely', 'image': 'assets/images/h_page4.png'},
   ];
 
-  bool isFirstLaunch = true;
-
   @override
   void initState() {
     super.initState();
     FirebaseAuth.instance.signOut(); // Выход из сессии при каждом запуске приложения
   }
 
-  // Метод для смены карточки с анимацией
   void _onNextPage() {
     if (_currentPage < cards.length - 1) {
       setState(() {
@@ -114,7 +111,6 @@ class _SplashScreenState extends State<SplashScreen> {
                     child: Column(
                       key: ValueKey<int>(_currentPage),
                       children: [
-                        // Изображение карусели
                         Expanded(
                           flex: 3,
                           child: Image.asset(
@@ -124,7 +120,6 @@ class _SplashScreenState extends State<SplashScreen> {
                           ),
                         ),
                         const SizedBox(height: 20),
-                        // Текст карусели
                         Expanded(
                           flex: 2,
                           child: Container(
@@ -229,7 +224,7 @@ class HomePage extends StatefulWidget {
 }
 
 class HomePageState extends State<HomePage> {
-  int _currentIndex = 0; // Индекс выбранной страницы
+  int _currentIndex = 0;
   List<String> _frontImageUrls = [];
   bool isLoading = true;
   List<Map<String, dynamic>> accounts = [];
@@ -283,6 +278,50 @@ class HomePageState extends State<HomePage> {
     }
   }
 
+
+  final TextEditingController _accountTypeController = TextEditingController();
+  final TextEditingController _balanceController = TextEditingController();
+
+  Future<void> _createBankAccount() async {
+    User? user = FirebaseAuth.instance.currentUser;
+    if (user != null) {
+      String accountType = _accountTypeController.text.trim();
+      double balance = double.parse(_balanceController.text.trim());
+
+      try {
+        DocumentReference docRef = await FirebaseFirestore.instance
+            .collection('bankAccounts')
+            .add({
+          'userId': user.uid,
+          'accountType': accountType,
+          'balance': balance,
+          'createdAt': FieldValue.serverTimestamp(),
+        });
+
+        // Очистите поля формы
+        _accountTypeController.clear();
+        _balanceController.clear();
+
+        // Обновите список счетов
+        await _loadAccountsFromFirestore();
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Банковский счёт создан с ID: ${docRef.id}'),
+          ),
+        );
+      } catch (e) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Ошибка при создании банковского счёта: $e'),
+          ),
+        );
+      }
+    }
+  }
+
+
+
   Future<void> _loadFrontImages() async {
     User? user = FirebaseAuth.instance.currentUser;
     if (user != null) {
@@ -326,93 +365,172 @@ class HomePageState extends State<HomePage> {
     super.dispose();
   }
 
-  // Виджеты для разных страниц
   Widget _buildHomePage() {
-    return isLoading
-        ? const Center(child: CircularProgressIndicator())
-        : PageView.builder(
-      controller: _pageController,
-      itemCount: _frontImageUrls.length,
-      itemBuilder: (context, index) {
-        return Image.network(_frontImageUrls[index]);
-      },
-    );
-  }
-
-  Widget _buildUserListPage() {
-    return ListView.builder(
-      itemCount: accounts.length,
-      itemBuilder: (context, index) {
-        return ListTile(
-          title: Text(accounts[index]['ownerName']),
-          subtitle: Text('Balance: ${accounts[index]['balance']}'),
-        );
-      },
-    );
-  }
-
-  Widget _buildProfilePage() {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: const [
-          Icon(Icons.person, size: 100, color: Colors.white),
-          SizedBox(height: 10),
-          Text('User Profile', style: TextStyle(fontSize: 24, color: Colors.white)),
+    return Container(
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [Color(0xFF060808), Color(0xFF053641)],
+        ),
+      ),
+      child: isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : Column(
+        children: [
+          Expanded(
+            child: PageView.builder(
+              controller: _pageController,
+              itemCount: _frontImageUrls.length,
+              itemBuilder: (context, index) {
+                // Отображение карт
+                return Image.network(_frontImageUrls[index]);
+              },
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Создать новый банковский счёт',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                SizedBox(height: 16),
+                TextField(
+                  controller: _accountTypeController,
+                  decoration: InputDecoration(
+                    hintText: 'Тип счёта',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+                SizedBox(height: 16),
+                TextField(
+                  controller: _balanceController,
+                  keyboardType: TextInputType.number,
+                  decoration: InputDecoration(
+                    hintText: 'Баланс',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+                SizedBox(height: 16),
+                ElevatedButton(
+                  onPressed: _createBankAccount,
+                  child: Text('Создать счёт'),
+                ),
+                SizedBox(height: 32),
+                Text(
+                  'Ваши банковские счета',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                SizedBox(height: 16),
+                if (accounts.isEmpty)
+                  Center(child: Text('Банковские счета не найдены.'))
+                else
+                  Expanded(
+                    child: ListView.builder(
+                      itemCount: accounts.length,
+                      itemBuilder: (context, index) {
+                        Map<String, dynamic> account = accounts[index];
+                        return Card(
+                          child: Padding(
+                            padding: const EdgeInsets.all(16.0),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Тип счёта: ${account['accountType']}',
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                SizedBox(height: 8),
+                                Text(
+                                  'Баланс: \$${account['balance'].toStringAsFixed(2)}',
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                SizedBox(height: 8),
+                                // Используем форматирование даты для поля 'createdAt'
+                                Text(
+                                  'Создан: ${DateFormat('yyyy-MM-dd').format(account['createdAt'].toDate())}',
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    color: Colors.grey,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+              ],
+            ),
+          ),
         ],
       ),
     );
   }
 
+  Widget _buildUserListPage() {
+    return const UserListPage();
+  }
+
+  Widget _buildProfilePage() {
+    return const ProfilePage();
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: Stack(
-        children: [
-          Positioned.fill(
-            child: Container(
-              decoration: const BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [Color(0xFF060808), Color(0xFF053641)],
-                ),
-              ),
-            ),
-          ),
-          // В зависимости от выбранного индекса показываем разные страницы
-          IndexedStack(
-            index: _currentIndex,
-            children: [
-              _buildHomePage(), // Главная страница
-              _buildUserListPage(), // Страница со списком пользователей
-              _buildProfilePage(), // Страница профиля
-            ],
-          ),
-          Positioned(
-            bottom: 0,
-            left: 0,
-            right: 0,
-            child: CurvedNavigationBar(
-              index: _currentIndex,
-              height: 60.0,
-              items: const <Widget>[
-                Icon(Icons.home, size: 30),
-                Icon(Icons.list, size: 30),
-                Icon(Icons.person, size: 30),
-              ],
-              color: const Color(0xFF060808),
-              buttonBackgroundColor: const Color(0xFF00FFFF),
-              backgroundColor: Colors.transparent,
-              animationDuration: const Duration(milliseconds: 400),
-              onTap: (index) {
-                setState(() {
-                  _currentIndex = index; // Переключаем индекс на выбранную страницу
-                });
-              },
-            ),
-          ),
-        ],
+    return Container(
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [Color(0xFF060808), Color(0xFF053641)],
+        ),
+      ),
+      child: Scaffold(
+        extendBody: true, // Эта строка добавлена
+        bottomNavigationBar: CurvedNavigationBar(
+          index: _currentIndex,
+          height: 50.0,
+          items: const <Widget>[
+            Icon(Icons.supervised_user_circle_rounded, size: 30, color: Colors.white,),
+            Icon(Icons.home, size: 30, color: Colors.white,),
+            Icon(Icons.perm_identity, size: 30, color: Colors.white,),
+          ],
+          color: Color(0xFF060808),
+          buttonBackgroundColor: Color(0xFF060808),
+          backgroundColor: Colors.transparent,
+          animationCurve: Curves.easeInOut,
+          animationDuration: const Duration(milliseconds: 300),
+          onTap: (index) {
+            setState(() {
+              _currentIndex = index;
+            });
+          },
+        ),
+        body: IndexedStack(
+          index: _currentIndex,
+          children: [
+            _buildUserListPage(),
+            _buildHomePage(),
+            _buildProfilePage(),
+          ],
+        ),
       ),
     );
   }
