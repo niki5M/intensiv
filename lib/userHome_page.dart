@@ -1,8 +1,8 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
-import 'package:collection/collection.dart'; // Для использования groupBy
+import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:convert';
 
 class UserAccountsPage extends StatefulWidget {
   const UserAccountsPage({Key? key}) : super(key: key);
@@ -13,13 +13,14 @@ class UserAccountsPage extends StatefulWidget {
 
 class _UserAccountsPageState extends State<UserAccountsPage> {
   List<Map<String, dynamic>> accounts = [];
-  bool isLoading = true;
   Map<String, dynamic>? selectedAccount;
+  List<Map<String, dynamic>> localTransactions = [];
 
   @override
   void initState() {
     super.initState();
     _loadAccounts();
+    _loadTransactions();
   }
 
   Future<void> _loadAccounts() async {
@@ -31,426 +32,493 @@ class _UserAccountsPageState extends State<UserAccountsPage> {
             .where('userId', isEqualTo: user.uid)
             .get();
 
-        List<Map<String, dynamic>> fetchedAccounts = snapshot.docs.map((doc) {
-          return {
-            'id': doc.id,
-            'accountType': doc['accountType'],
-            'balance': doc['balance'],
-          };
-        }).toList();
-
-        if (fetchedAccounts.isEmpty) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('У вас нет счетов. Добавьте новый счёт.')),
-          );
-        }
-
         setState(() {
-          accounts = fetchedAccounts;
-          isLoading = false;
+          accounts = snapshot.docs.map((doc) {
+            return {
+              'id': doc.id,
+              'accountType': doc['accountType'],
+              'balance': doc['balance'],
+            };
+          }).toList();
         });
+
+        if (accounts.isNotEmpty) {
+          setState(() {
+            selectedAccount = accounts[0];
+          });
+        }
       } catch (e) {
         print('Error loading accounts: $e');
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Ошибка загрузки счетов. Попробуйте снова.')),
-        );
-        setState(() {
-          isLoading = false;
-        });
       }
+    }
+  }
+
+  Future<void> _loadTransactions() async {
+    if (selectedAccount == null) return;
+
+    try {
+      QuerySnapshot snapshot = await FirebaseFirestore.instance
+          .collection('transactions')
+          .where('accountId', isEqualTo: selectedAccount!['id'])
+          .orderBy('date', descending: true)
+          .get();
+
+      setState(() {
+        localTransactions = snapshot.docs.map((doc) {
+          final data = doc.data() as Map<String, dynamic>;
+          return {
+            'id': doc.id,
+            ...data,
+          };
+        }).toList();
+      });
+    } catch (e) {
+      print('Error loading transactions: $e');
+    }
+  }
+
+  Future<void> _addTransaction(Map<String, dynamic> newTransaction) async {
+    if (selectedAccount == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+            content: Text('Выберите счёт для добавления транзакции.')),
+      );
+      return;
+    }
+
+    try {
+      // Добавляем транзакцию
+      DocumentReference docRef =
+      await FirebaseFirestore.instance.collection('transactions').add(
+          newTransaction);
+
+      // Обновляем локальные данные
+      setState(() {
+        localTransactions.insert(0, {
+          'id': docRef.id,
+          ...newTransaction,
+        });
+      });
+
+      // Обновляем баланс счета в зависимости от типа транзакции
+      double newBalance = selectedAccount!['balance'];
+      if (newTransaction['transactionType'] == 'Расход') {
+        newBalance -= newTransaction['amount']; // Вычитаем при расходе
+      } else if (newTransaction['transactionType'] == 'Доход') {
+        newBalance += newTransaction['amount']; // Добавляем при доходе
+      }
+
+      // Обновляем счет в Firestore с новым балансом
+      await FirebaseFirestore.instance
+          .collection('bankAccounts')
+          .doc(selectedAccount!['id'])
+          .update({'balance': newBalance});
+
+      // Обновляем локальные данные с новым балансом
+      setState(() {
+        selectedAccount!['balance'] = newBalance;
+      });
+    } catch (e) {
+      print('Ошибка добавления транзакции: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+            content: Text('Ошибка добавления транзакции. Попробуйте снова.')),
+      );
+    }
+  }
+
+  Future<void> _deleteTransaction(String transactionId) async {
+    try {
+      await FirebaseFirestore.instance.collection('transactions').doc(
+          transactionId).delete();
+
+      setState(() {
+        localTransactions.removeWhere((tx) => tx['id'] == transactionId);
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Транзакция удалена.')),
+      );
+    } catch (e) {
+      print('Ошибка при удалении транзакции: $e');
+    }
+  }
+
+  // Модальное окно для добавления транзакции
+  Future<void> _showAddTransactionModal() async {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Color(0xFF2C2F33), // Задаём цвет фона для всего модального окна
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (_) {
+        return AddTransactionModal(
+          onTransactionAdded: _addTransaction,
+          selectedAccount: selectedAccount,
+        );
+      },
+    );
+  }
+
+  // Метод для удаления счёта и связанных с ним транзакций
+  Future<void> _deleteAccount(String accountId) async {
+    try {
+      // Сначала удалим все транзакции, связанные с этим счётом
+      QuerySnapshot transactionsSnapshot = await FirebaseFirestore.instance
+          .collection('transactions')
+          .where('accountId', isEqualTo: accountId)
+          .get();
+
+      for (var doc in transactionsSnapshot.docs) {
+        await doc.reference.delete();
+      }
+
+      // Теперь удалим сам счёт
+      await FirebaseFirestore.instance.collection('bankAccounts')
+          .doc(accountId)
+          .delete();
+
+      // Обновим локальные данные
+      setState(() {
+        accounts.removeWhere((account) => account['id'] == accountId);
+        if (accounts.isNotEmpty) {
+          selectedAccount = accounts[0];
+        } else {
+          selectedAccount = null;
+        }
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+            content: Text('Счёт и все связанные транзакции удалены.')),
+      );
+    } catch (e) {
+      print('Ошибка при удалении счёта: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Ошибка при удалении счёта.')),
+      );
     }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : accounts.isEmpty
-          ? const Center(
-        child: Text(
-          'Счета не найдены.',
-          style: TextStyle(color: Colors.white, fontSize: 18),
-        ),
-      )
-          : Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [Color(0xFF060808), Color(0xFF053641)],
-          ),
-        ),
-        child: Padding(
-          padding: const EdgeInsets.only(top: 40.0),
-          child: Column(
-            children: [
-              Padding(
-                padding: const EdgeInsets.symmetric(vertical: 20.0),
-                child: SizedBox(
-                  height: 220,
-                  child: ListView.builder(
-                    scrollDirection: Axis.horizontal,
-                    padding: const EdgeInsets.symmetric(horizontal: 12.0),
-                    itemCount: accounts.length + 1,
-                    itemBuilder: (context, index) {
-                      if (index == accounts.length) {
-                        return _buildAddAccountButton();
-                      } else {
-                        final account = accounts[index];
-                        return _buildBankCard(account);
-                      }
-                    },
-                  ),
+      body: Column(
+        children: [
+          // Верхняя часть экрана с фоном
+          Expanded(
+            flex: 2, // Это фактически 1.5 от 4
+            child: Container(
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [Color(0xFF060808), Color(0xFF0A0A0A)],
                 ),
               ),
-              if (selectedAccount != null) ...[
-                _buildAddTransactionButton(),
-                _buildTransactionChart(),
-              ],
-            ],
+              child: Stack(
+                children: [
+                  Align(
+                    alignment: Alignment.topLeft,
+                    child: Padding(
+                      padding: const EdgeInsets.only(left: 26.0, top: 45.00),
+                      child: const Text(
+                        'SpendWise',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ),
+                  Center(
+                    child: accounts.isEmpty
+                        ? const Text(
+                      'Счета не найдены',
+                      style: TextStyle(color: Colors.white, fontSize: 18),
+                    )
+                        : PageView.builder(
+                      controller: PageController(viewportFraction: 0.9),
+                      itemCount: accounts.length,
+                      itemBuilder: (context, index) {
+                        final account = accounts[index];
+                        return GestureDetector(
+                          onTap: () =>
+                              setState(() => selectedAccount = account),
+                          onLongPress: () async {
+                            final shouldDelete = await showDialog<bool>(
+                              context: context,
+                              builder: (BuildContext context) {
+                                return AlertDialog(
+                                  title: const Text('Удалить счёт'),
+                                  content: const Text(
+                                      'Вы уверены, что хотите удалить этот счёт?'),
+                                  actions: [
+                                    TextButton(
+                                      onPressed: () =>
+                                          Navigator.of(context).pop(false),
+                                      child: const Text('Отмена'),
+                                    ),
+                                    TextButton(
+                                      onPressed: () =>
+                                          Navigator.of(context).pop(true),
+                                      child: const Text('Удалить'),
+                                    ),
+                                  ],
+                                );
+                              },
+                            );
+                            if (shouldDelete == true) {
+                              await _deleteAccount(account['id']);
+                            }
+                          },
+                          child: _buildBankCard(account),
+                        );
+                      },
+                    ),
+                  ),
+                ],
+              ),
+            ),
           ),
-        ),
+          Expanded(
+            flex: 3,
+            child: Container(
+              color: Color(0xFF131719),
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text(
+                        'Транзакции',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 18,
+                          fontWeight: FontWeight.w400,
+                        ),
+                      ),
+                      ElevatedButton(
+                        onPressed: _showAddTransactionModal,
+                        style: ElevatedButton.styleFrom(
+                          foregroundColor: Color(0xFF717171) , backgroundColor: const Color(
+                            0xFF000000), // Цвет текста кнопки
+                        ),
+                        child: const Text('Добавить'),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 0),
+                  Expanded(
+                    child: ListView.builder(
+
+                      itemCount: localTransactions.length,
+                      itemBuilder: (context, index) {
+                        final transaction = localTransactions[index];
+                        return ListTile(
+                          leading: transaction['transactionType'] == 'Расход'
+                              ? const Icon(
+                              Icons.money_off, color: Color(0xFF6E0534), size: 30)
+                              : const Icon(
+                              Icons.attach_money, color: Color(0xFF166778), size: 30),
+                          title: Text(
+                            '${transaction['category']}',
+                            style: const TextStyle(
+                              color: Colors.white70,
+                              fontSize: 12,
+                            ),
+                          ),
+                          subtitle: Text(
+                            '${transaction['transactionType']}',
+                            style: const TextStyle(
+                              color: Colors.white38,
+                              fontSize: 8,
+                            ),
+                          ),
+                          trailing: Text(
+                            '₽${transaction['amount'].toStringAsFixed(2)}',
+                            style: TextStyle(
+                              color: transaction['transactionType'] == 'Расход'
+                                  ? const Color(0xFF8E0844) // Красный для расхода
+                                  : const Color(0xFF26E6E6), // Голубой для дохода
+                              fontSize: 14,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  )
+                ],
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
 
   Widget _buildBankCard(Map<String, dynamic> account) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 18.0),
-      child: GestureDetector(
-        onTap: () {
-          _showAccountDetails(account);
-        },
-        child: Container(
-          width: 350,
-          height: 180,
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(20.0),
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [Color(0xFF2193b0), Color(0xFF6dd5ed)],
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.3),
-                offset: const Offset(0, 8),
-                blurRadius: 12.0,
-              ),
-            ],
-          ),
-          child: Stack(
-            children: [
-              Positioned(
-                top: 16,
-                left: 16,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      account['accountType'],
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 22,
-                        fontWeight: FontWeight.bold,
-                        letterSpacing: 1.5,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    const Text(
-                      'EXP: 12/24',
-                      style: TextStyle(
-                        color: Colors.white70,
-                        fontSize: 14,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              Positioned(
-                bottom: 16,
-                left: 16,
-                child: Row(
-                  children: [
-                    const Icon(
-                      Icons.account_balance_wallet,
-                      color: Colors.white,
-                      size: 30,
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      '\$${account['balance'].toStringAsFixed(2)}',
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 26,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
+    return Container(
+      margin: const EdgeInsets.only(
+          left: 15.0, right: 15.0, top: 110.0, bottom: 35.0),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color(0xFF82A6E8), Color(0xC000BABA), Color(0xFF002FA3)],
         ),
-      ),
-    );
-  }
-
-  Widget _buildAddAccountButton() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 8.0),
-      child: GestureDetector(
-        onTap: () {
-          _showCreateAccountDialog();
-        },
-        child: Container(
-          width: 50,
-          height: 180,
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(20.0),
-            color: Colors.black.withOpacity(0.8),
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.6),
+            blurRadius: 10,
+            spreadRadius: 5,
+            offset: const Offset(4, 4),
           ),
-          child: Center(
-            child: const Text(
-              '+ ',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-              ),
+        ],
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              account['accountType'],
+              style: const TextStyle(fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black),
             ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  void _showAccountDetails(Map<String, dynamic> account) {
-    setState(() {
-      selectedAccount = account;
-    });
-  }
-
-  Widget _buildAddTransactionButton() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 20.0),
-      child: ElevatedButton(
-        onPressed: () {
-          _showAddTransactionDialog();
-        },
-        child: const Text(
-          'Добавить транзакцию',
-          style: TextStyle(fontSize: 18),
-        ),
-      ),
-    );
-  }
-
-  Future<void> _showAddTransactionDialog() async {
-    final TextEditingController amountController = TextEditingController();
-    final TextEditingController categoryController = TextEditingController();
-
-    showDialog(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          title: const Text('Добавить транзакцию'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: amountController,
-                keyboardType: TextInputType.number,
-                decoration: const InputDecoration(
-                  labelText: 'Сумма',
-                ),
-              ),
-              TextField(
-                controller: categoryController,
-                decoration: const InputDecoration(
-                  labelText: 'Категория',
-                ),
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.of(context).pop();
-              },
-              child: const Text('Отмена'),
-            ),
-            TextButton(
-              onPressed: () async {
-                final amount = double.tryParse(amountController.text) ?? 0.0;
-                final category = categoryController.text;
-
-                if (amount > 0 && category.isNotEmpty && selectedAccount != null) {
-                  await _addNewTransaction(amount, category);
-                  Navigator.of(context).pop();
-                } else {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Заполните все поля корректно.')),
-                  );
-                }
-              },
-              child: const Text('Добавить'),
+            const SizedBox(height: 70),
+            Text(
+              ' ₽${account['balance'].toStringAsFixed(2)}',
+              style: const TextStyle(fontSize: 19),
             ),
           ],
-        );
-      },
+        ),
+      ),
     );
   }
+}
 
-  Future<void> _addNewTransaction(double amount, String category) async {
-    try {
-      if (selectedAccount != null) {
-        await FirebaseFirestore.instance.collection('transactions').add({
-          'accountId': selectedAccount!['id'],
-          'amount': amount,
-          'category': category,
-          'date': DateTime.now(),
-        });
+class AddTransactionModal extends StatefulWidget {
+  final Function(Map<String, dynamic>) onTransactionAdded;
+  final Map<String, dynamic>? selectedAccount;
 
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Транзакция добавлена')),
-        );
-        setState(() {});
-      }
-    } catch (e) {
-      print('Error adding transaction: $e');
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Ошибка добавления транзакции.')),
-      );
-    }
-  }
+  const AddTransactionModal({Key? key, required this.onTransactionAdded, this.selectedAccount}) : super(key: key);
 
-  Widget _buildTransactionChart() {
-    return FutureBuilder<QuerySnapshot>(
-      future: FirebaseFirestore.instance
-          .collection('transactions')
-          .where('accountId', isEqualTo: selectedAccount!['id'])
-          .get(),
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const CircularProgressIndicator();
-        }
+  @override
+  _AddTransactionModalState createState() => _AddTransactionModalState();
+}
 
-        if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-          return const Center(child: Text('Нет транзакций.'));
-        }
+class _AddTransactionModalState extends State<AddTransactionModal> {
+  final amountController = TextEditingController();
+  String? selectedTransactionType;
+  String? selectedSubcategory;
+  final List<String> incomeSubcategories = ['Зарплата', 'Подарки', 'Продажа'];
+  final List<String> expenseSubcategories = ['Еда', 'Транспорт', 'Развлечения'];
 
-        final transactions = snapshot.data!.docs.map((doc) {
-          return {
-            'amount': doc['amount'],
-            'category': doc['category'],
-          };
-        }).toList();
-
-        final groupedTransactions = groupBy(transactions, (transaction) => transaction['category']);
-
-        final categories = groupedTransactions.keys.toList();
-        final amounts = groupedTransactions.values.map((list) {
-          return list.fold(0.0, (sum, item) => sum + item['amount']);
-        }).toList();
-
-        return PieChart(
-          PieChartData(
-            sections: List.generate(categories.length, (index) {
-              return PieChartSectionData(
-                value: amounts[index],
-                title: categories[index],
-                color: Colors.primaries[index % Colors.primaries.length],
-                radius: 50,
-                titleStyle: const TextStyle(color: Colors.white),
-              );
-            }),
-          ),
-        );
-      },
-    );
-  }
-
-  Future<void> _showCreateAccountDialog() async {
-    final TextEditingController accountTypeController = TextEditingController();
-    final TextEditingController balanceController = TextEditingController();
-
-    showDialog(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          title: const Text('Создать новый счёт'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: accountTypeController,
-                decoration: const InputDecoration(
-                  labelText: 'Тип счёта',
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.only(
+        bottom: MediaQuery.of(context).viewInsets.bottom,
+        left: 16,
+        right: 16,
+        top: 16,
+      ),
+      child: Container(
+        color: Color(0xFF2C2F33), // Темный фон
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: amountController,
+              keyboardType: TextInputType.number,
+              decoration: InputDecoration(
+                labelText: 'Сумма',
+                labelStyle: TextStyle(color: Colors.white), // Белый текст для метки
+                enabledBorder: UnderlineInputBorder(
+                  borderSide: BorderSide(color: Colors.white), // Белая линия
+                ),
+                focusedBorder: UnderlineInputBorder(
+                  borderSide: BorderSide(color: Colors.white), // Белая линия при фокусе
                 ),
               ),
-              TextField(
-                controller: balanceController,
-                keyboardType: TextInputType.number,
-                decoration: const InputDecoration(
-                  labelText: 'Баланс',
-                ),
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.of(context).pop();
-              },
-              child: const Text('Отмена'),
+              style: TextStyle(color: Colors.white), // Белый текст
             ),
-            TextButton(
-              onPressed: () async {
-                final accountType = accountTypeController.text;
-                final balance = double.tryParse(balanceController.text) ?? 0.0;
-
-                if (accountType.isNotEmpty && balance >= 0) {
-                  await _createNewAccount(accountType, balance);
-                  Navigator.of(context).pop();
-                } else {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Заполните все поля корректно.')),
-                  );
-                }
+            DropdownButton<String>(
+              value: selectedTransactionType,
+              onChanged: (newValue) {
+                setState(() {
+                  selectedTransactionType = newValue;
+                });
               },
-              child: const Text('Создать'),
+              hint: Text('Выберите тип транзакции', style: TextStyle(color: Colors.white)),
+              dropdownColor: Color(0xFF2C2F33), // Темный фон выпадающего меню
+              items: ['Доход', 'Расход'].map((type) {
+                return DropdownMenuItem<String>(
+                  value: type,
+                  child: Text(type, style: TextStyle(color: Colors.white)),
+                );
+              }).toList(),
+            ),
+            DropdownButton<String>(
+              value: selectedSubcategory,
+              onChanged: (newValue) {
+                setState(() {
+                  selectedSubcategory = newValue;
+                });
+              },
+              hint: Text('Выберите категорию', style: TextStyle(color: Colors.white)),
+              dropdownColor: Color(0xFF2C2F33), // Темный фон выпадающего меню
+              items: (selectedTransactionType == 'Доход'
+                  ? incomeSubcategories
+                  : expenseSubcategories)
+                  .map((category) => DropdownMenuItem<String>(
+                value: category,
+                child: Text(category, style: TextStyle(color: Colors.white)),
+              ))
+                  .toList(),
+            ),
+            const SizedBox(height: 10),
+            ElevatedButton(
+              onPressed: () {
+                if (amountController.text.isEmpty ||
+                    selectedTransactionType == null ||
+                    selectedSubcategory == null) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Заполните все поля для добавления транзакции.')),
+                  );
+                  return;
+                }
+
+                final newTransaction = {
+                  'accountId': widget.selectedAccount!['id'],
+                  'amount': double.parse(amountController.text),
+                  'category': selectedSubcategory,
+                  'transactionType': selectedTransactionType,
+                  'description': 'Только что добавлена',
+                  'date': DateTime.now(),
+                };
+
+                widget.onTransactionAdded(newTransaction);
+                Navigator.pop(context);
+              },
+              style: ElevatedButton.styleFrom(
+                foregroundColor: Colors.white, backgroundColor: Color(0xFF333333), // Белый текст
+              ),
+              child: const Text('Добавить транзакцию'),
             ),
           ],
-        );
-      },
+        ),
+      ),
     );
-  }
-
-  Future<void> _createNewAccount(String accountType, double balance) async {
-    try {
-      User? user = FirebaseAuth.instance.currentUser;
-      if (user != null) {
-        await FirebaseFirestore.instance.collection('bankAccounts').add({
-          'userId': user.uid,
-          'accountType': accountType,
-          'balance': balance,
-        });
-
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Новый счёт добавлен.')),
-        );
-        setState(() {
-          _loadAccounts(); // Обновление списка счётов
-        });
-      }
-    } catch (e) {
-      print('Error creating account: $e');
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Ошибка создания счёта.')),
-      );
-    }
   }
 }

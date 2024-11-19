@@ -7,7 +7,6 @@ import 'package:intensiv_wise/profile.dart';
 import 'package:intensiv_wise/user_list_page.dart';
 import 'package:curved_navigation_bar/curved_navigation_bar.dart';
 import 'package:firebase_core/firebase_core.dart';
-import 'package:intl/intl.dart';
 import 'package:intensiv_wise/userHome_page.dart';
 
 void main() async {
@@ -33,7 +32,7 @@ class MyApp extends StatelessWidget {
         '/login': (context) => const LoginPage(),
         '/home': (context) => const HomePage(),
         '/profile': (context) => const ProfilePage(),
-        '/userList': (context) => const UserListPage(),
+        '/userList': (context) => const AllTransactionsPage(),
         '/splash': (context) => const SplashScreen(),
       },
     );
@@ -371,7 +370,7 @@ class HomePageState extends State<HomePage> {
   }
 
   Widget _buildUserListPage() {
-    return const UserListPage();
+    return const AllTransactionsPage();
   }
 
   Widget _buildProfilePage() {
