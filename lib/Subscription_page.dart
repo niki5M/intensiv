@@ -114,13 +114,13 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
             // Заголовок
             const Text(
               'Premium Подписка',
-              style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.white),
+              style: TextStyle(fontSize: 34, fontWeight: FontWeight.bold, color: Colors.white),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 10),
             const Text(
-              'Получите доступ ко всем эксклюзивным функциям, ',
+              'Получите доступ ко всем эксклюзивным функциям ',
               textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 16, color: Colors.white),
+              style: TextStyle(fontSize: 19, color: Colors.white),
             ),
             const SizedBox(height: 32),
 

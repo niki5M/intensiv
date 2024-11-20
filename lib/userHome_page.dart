@@ -228,7 +228,7 @@ class _UserAccountsPageState extends State<UserAccountsPage> {
                         'SpendWise',
                         style: TextStyle(
                           color: Colors.white,
-                          fontSize: 18,
+                          fontSize: 35,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
@@ -300,7 +300,7 @@ class _UserAccountsPageState extends State<UserAccountsPage> {
                         'Транзакции',
                         style: TextStyle(
                           color: Colors.white,
-                          fontSize: 18,
+                          fontSize: 28,
                           fontWeight: FontWeight.w400,
                         ),
                       ),
@@ -331,14 +331,14 @@ class _UserAccountsPageState extends State<UserAccountsPage> {
                             '${transaction['category']}',
                             style: const TextStyle(
                               color: Colors.white70,
-                              fontSize: 12,
+                              fontSize: 21,
                             ),
                           ),
                           subtitle: Text(
                             '${transaction['transactionType']}',
                             style: const TextStyle(
                               color: Colors.white38,
-                              fontSize: 8,
+                              fontSize: 18,
                             ),
                           ),
                           trailing: Text(
@@ -347,7 +347,7 @@ class _UserAccountsPageState extends State<UserAccountsPage> {
                               color: transaction['transactionType'] == 'Расход'
                                   ? const Color(0xFF8E0844) // Красный для расхода
                                   : const Color(0xFF26E6E6), // Голубой для дохода
-                              fontSize: 14,
+                              fontSize: 24,
                               fontWeight: FontWeight.bold,
                             ),
                           ),
@@ -391,14 +391,14 @@ class _UserAccountsPageState extends State<UserAccountsPage> {
           children: [
             Text(
               account['accountType'],
-              style: const TextStyle(fontSize: 20,
+              style: const TextStyle(fontSize: 30,
                   fontWeight: FontWeight.bold,
                   color: Colors.black),
             ),
             const SizedBox(height: 70),
             Text(
               ' ₽${account['balance'].toStringAsFixed(2)}',
-              style: const TextStyle(fontSize: 19),
+              style: const TextStyle(fontSize: 39,  fontWeight: FontWeight.bold,),
             ),
           ],
         ),

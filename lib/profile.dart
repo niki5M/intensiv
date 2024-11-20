@@ -280,10 +280,10 @@ class ProfilePageState extends State<ProfilePage> {
           // Фон с градиентом
           Container(
             decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [Color(0xFF060808), Color(0xFF053641)],
+              gradient: const LinearGradient(
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
+                colors: [ Color(0xFF000000),Color(0xFF3C0014)],stops: [0.5, 1.0],
               ),
             ),
           ),
@@ -329,7 +329,7 @@ class ProfilePageState extends State<ProfilePage> {
                     ),
                   ),
                 ),
-                SizedBox(height: 16.0),
+                SizedBox(height: 45.0),
 
                 // Имя пользователя и кнопка редактирования
                 Row(
@@ -338,8 +338,8 @@ class ProfilePageState extends State<ProfilePage> {
                     Text(
                       nickname.isNotEmpty ? nickname : 'Без имени',
                       style: TextStyle(
-                        fontSize: 22,
-                        fontWeight: FontWeight.bold,
+                        fontSize: 30,
+                        fontWeight: FontWeight.w400,
                         color: Colors.white,
                       ),
                     ),
@@ -351,33 +351,33 @@ class ProfilePageState extends State<ProfilePage> {
                 ),
 
                 // Электронная почта и дата регистрации
-                SizedBox(height: 20.0),
+                SizedBox(height:15.0),
                 Text(
                   'Email: $email',
-                  style: TextStyle(color: Colors.white, fontSize: 16),
+                  style: TextStyle(color: Colors.white, fontSize: 26, fontWeight: FontWeight.w300),
                 ),
-                SizedBox(height: 50.0),
+                SizedBox(height: 20.0),
 
                 SizedBox(height: profileFieldSpacing),
 
-    // Лозунг перед кнопкой премиума
-    subscriptionEndDate != null
-    ? Text(
-    'Ваша подписка действует до: ${DateFormat('dd.MM.yyyy').format(DateTime.parse(subscriptionEndDate!))}',
-    style: TextStyle(
-    fontSize: 18,
-    fontWeight: FontWeight.w300,
-    color: Color(0x99FFFFFF),
-    ),
-    )
-        : Text(
-    'Получите дополнительные возможности с премиум-аккаунтом!',
-    style: TextStyle(
-    fontSize: 18,
-    fontWeight: FontWeight.w300,
-    color: Color(0x99FFFFFF),
-    ),
-    ),
+                // Лозунг перед кнопкой премиума
+                subscriptionEndDate != null
+                    ? Text(
+                  'Ваша подписка действует до: ${DateFormat('dd.MM.yyyy').format(DateTime.parse(subscriptionEndDate!))}',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w300,
+                    color: Color(0x99FFFFFF),
+                  ),
+                )
+                    : Text(
+                  'Получите дополнительные возможности с премиум-аккаунтом!',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w300,
+                    color: Color(0x99FFFFFF),
+                  ),
+                ),
 
                 SizedBox(height: actionButtonSpacing),
 
@@ -400,7 +400,7 @@ class ProfilePageState extends State<ProfilePage> {
                     child: Ink(
                       decoration: BoxDecoration(
                         gradient: LinearGradient(
-                          colors: [Color(0xFFE0044D), Color(0xFFF24E67)],
+                          colors: [Color(0xFF82A6E8), Color(0xC000BABA), Color(0xFF002FA3)],
                           begin: Alignment.centerLeft,
                           end: Alignment.centerRight,
                         ),
@@ -411,7 +411,7 @@ class ProfilePageState extends State<ProfilePage> {
                         child: Text(
                           'Premium',
                           style: TextStyle(
-                            fontSize: 22,
+                            fontSize: 32,
                             fontWeight: FontWeight.bold,
                             color: Colors.white,
                           ),

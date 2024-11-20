@@ -8,8 +8,10 @@ import 'package:intensiv_wise/user_list_page.dart';
 import 'package:curved_navigation_bar/curved_navigation_bar.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:intensiv_wise/userHome_page.dart';
+import 'dart:math';
 
 void main() async {
+
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp();
   runApp(const MyApp());
@@ -46,21 +48,71 @@ class SplashScreen extends StatefulWidget {
   _SplashScreenState createState() => _SplashScreenState();
 }
 
-class _SplashScreenState extends State<SplashScreen> {
-  PageController _pageController = PageController();
+class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<Offset> _circle1Animation;
+  late Animation<Offset> _circle2Animation;
+
+  final Random _random = Random();
   int _currentPage = 0;
 
-  List<Map<String, String>> cards = [
-    {'title': 'Are you tired of unexpected expenses?', 'image': 'assets/images/h_page.png'},
-    {'title': 'Imagine if you can manage your expenses in two taps', 'image': 'assets/images/h_page2.png'},
-    {'title': 'Or synchronize your bank card with the application', 'image': 'assets/images/h_page3.png'},
-    {'title': 'So, what are you waiting for? Learn to Spend Wisely', 'image': 'assets/images/h_page4.png'},
+  late double screenWidth;
+  late double screenHeight;
+
+  final List<Map<String, String>> cards = [
+    {'title': 'Are you tired of unexpected expenses?'},
+    {'title': 'Imagine if you can manage your expenses in two taps'},
+    {'title': 'Or synchronize your bank card with the application'},
+    {'title': 'So, what are you waiting for?'},
   ];
 
   @override
   void initState() {
     super.initState();
-    FirebaseAuth.instance.signOut(); // Выход из сессии при каждом запуске приложения
+
+    // Инициализация анимационного контроллера
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 10),
+    )
+      ..repeat(reverse: true);
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+
+    // Получаем размеры экрана
+    screenWidth = MediaQuery
+        .of(context)
+        .size
+        .width;
+    screenHeight = MediaQuery
+        .of(context)
+        .size
+        .height;
+
+    // Инициализация анимаций смещения
+    _circle1Animation = _createRandomOffsetAnimation();
+    _circle2Animation = _createRandomOffsetAnimation();
+  }
+
+  Animation<Offset> _createRandomOffsetAnimation() {
+    return Tween<Offset>(
+      begin: _randomOffset(),
+      end: _randomOffset(),
+    ).animate(CurvedAnimation(
+      parent: _controller,
+      curve: Curves.easeInOutCubic,
+    ));
+  }
+
+  Offset _randomOffset() {
+    // Генерация случайных координат по всему экрану
+    return Offset(
+      _random.nextDouble() * screenWidth,
+      _random.nextDouble() * screenHeight,
+    );
   }
 
   void _onNextPage() {
@@ -69,36 +121,79 @@ class _SplashScreenState extends State<SplashScreen> {
         _currentPage++;
       });
     } else {
-      // Переход к экрану авторизации
       Navigator.pushReplacementNamed(context, '/login');
     }
   }
 
   @override
   void dispose() {
-    _pageController.dispose();
+    _controller.dispose();
     super.dispose();
+  }
+
+  Widget _buildBlurredCircle(Color color) {
+    return Container(
+      width: 0,
+      height: 0,
+      decoration: BoxDecoration(
+        color: color,
+        shape: BoxShape.circle,
+        boxShadow: [
+          BoxShadow(
+            color: color,
+            blurRadius: 250,
+            spreadRadius: 200,
+          ),
+        ],
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Colors.black,
       body: Stack(
         children: [
+          // Фон с анимацией
           Positioned.fill(
-            child: Container(
-              decoration: const BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [Color(0xFF060808), Color(0xFF053641)],
-                ),
-              ),
+            child: AnimatedBuilder(
+              animation: _controller,
+              builder: (context, child) {
+                return Stack(
+                  children: [
+                    Positioned(
+                      left: _circle1Animation.value.dx,
+                      top: _circle1Animation.value.dy,
+                      child: _buildBlurredCircle(Colors.blue.withOpacity(0.3)),
+                    ),
+                    Positioned(
+                      left: _circle2Animation.value.dx,
+                      top: _circle2Animation.value.dy,
+                      child: _buildBlurredCircle(Colors.pink.withOpacity(0.3)),
+                    ),
+                  ],
+                );
+              },
             ),
           ),
+          // Изображение, выходящее за пределы экрана справа и вверх
+          Positioned(
+            top: -220.0,  // Смещаем изображение вверх на 90
+            right: -220.0,  // Смещаем изображение правее
+            child: Image.asset(
+              'assets/images/h_page.png', // Путь к вашему изображению
+              width: 750, // Увеличиваем ширину изображения
+              height: 700, // Увеличиваем высоту изображения
+              fit: BoxFit.cover, // Растягиваем изображение, чтобы оно заполнило отведённую область
+            ),
+          ),
+          // Основной контент
           Column(
             children: [
+              const SizedBox(height: 380), // Отступ, чтобы текст был ниже середины экрана
               Expanded(
+                flex: 1,
                 child: Center(
                   child: AnimatedSwitcher(
                     duration: const Duration(milliseconds: 300),
@@ -112,35 +207,52 @@ class _SplashScreenState extends State<SplashScreen> {
                       key: ValueKey<int>(_currentPage),
                       children: [
                         Expanded(
-                          flex: 3,
-                          child: Image.asset(
-                            cards[_currentPage]['image']!,
-                            fit: BoxFit.cover,
-                            width: double.infinity,
-                          ),
-                        ),
-                        const SizedBox(height: 20),
-                        Expanded(
                           flex: 2,
                           child: Container(
                             decoration: BoxDecoration(
                               color: Colors.transparent,
                               borderRadius: BorderRadius.circular(12.0),
-                              border: Border.all(
-                                color: Colors.white.withOpacity(0.0),
-                                width: 1,
-                              ),
                             ),
                             child: Padding(
-                              padding: const EdgeInsets.symmetric(horizontal: 25.0, vertical: 12.0),
-                              child: Text(
-                                cards[_currentPage]['title']!,
-                                style: const TextStyle(
-                                  fontSize: 24,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.white,
+                              padding: const EdgeInsets.symmetric(horizontal: 30.0, vertical: 12.0),
+                              child: Align(
+                                alignment: Alignment.centerLeft, // Прикрепляем текст к левому краю
+                                child: Text.rich(
+                                  TextSpan(
+                                    text: cards[_currentPage]['title']!,
+                                    style: const TextStyle(
+                                      fontSize: 29,
+                                      fontWeight: FontWeight.w700,
+                                      color: Colors.white,
+                                    ),
+                                    children: _currentPage == 3
+                                        ? [
+                                      TextSpan(
+                                        text: ' Learn to ',
+                                        style: const TextStyle(
+                                          fontSize: 29,
+                                          fontWeight: FontWeight.w700,
+                                          color: Colors.white,
+                                        ),
+                                      ),
+                                      TextSpan(
+                                        text: 'Spend Wisely',
+                                        style: TextStyle(
+                                          fontSize: 29,
+                                          fontWeight: FontWeight.w700,
+                                          foreground: Paint()
+                                            ..shader = LinearGradient(
+                                              begin: Alignment.topLeft,
+                                              end: Alignment.bottomRight,
+                                              colors: [Colors.pink, Colors.cyan],
+                                              stops: [0.6, 1.0],  // Розовый занимает 70% и голубой — 30%
+                                            ).createShader(Rect.fromLTWH(0.0, 0.0, 250.0, 70.0)), // Увеличиваем ширину, чтобы охватить большую часть текста
+                                        ),
+                                      ),
+                                    ]
+                                        : [],
+                                  ),
                                 ),
-                                textAlign: TextAlign.left,
                               ),
                             ),
                           ),
@@ -150,8 +262,9 @@ class _SplashScreenState extends State<SplashScreen> {
                   ),
                 ),
               ),
+              // Индикаторы и кнопка с отступами
               Padding(
-                padding: const EdgeInsets.all(16.0),
+                padding: const EdgeInsets.only(bottom: 60.0, left: 30.0, right: 30.0),
                 child: Align(
                   alignment: Alignment.bottomCenter,
                   child: Row(
@@ -161,7 +274,7 @@ class _SplashScreenState extends State<SplashScreen> {
                         children: List.generate(
                           cards.length,
                               (index) => Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 6.0),
+                            padding: const EdgeInsets.symmetric(horizontal: 7.0),
                             child: AnimatedContainer(
                               duration: const Duration(milliseconds: 300),
                               width: _currentPage == index ? 24 : 12,
@@ -185,17 +298,19 @@ class _SplashScreenState extends State<SplashScreen> {
                           gradient: const LinearGradient(
                             begin: Alignment.topLeft,
                             end: Alignment.bottomRight,
-                            colors: [Color(0xFF504FFF), Color(0xFFC69EFD)],
+                            colors: [Color(0xFF503FFF), Color(0xFFC69EFD)],
                           ),
                         ),
                         child: InkWell(
                           onTap: _onNextPage,
                           child: Center(
                             child: Text(
-                              _currentPage == cards.length - 1 ? 'Continue' : '>',
+                              _currentPage == cards.length - 1
+                                  ? 'Continue'
+                                  : '>',
                               style: const TextStyle(
                                 color: Colors.white,
-                                fontSize: 18,
+                                fontSize: 20,
                                 fontWeight: FontWeight.bold,
                               ),
                             ),
@@ -213,8 +328,7 @@ class _SplashScreenState extends State<SplashScreen> {
     );
   }
 }
-
-class HomePage extends StatefulWidget {
+  class HomePage extends StatefulWidget {
   const HomePage({super.key});
 
   @override
