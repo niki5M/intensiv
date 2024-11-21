@@ -248,7 +248,7 @@ class ProfilePageState extends State<ProfilePage> {
                       child: const Text(
                         'Отмена',
                         style: TextStyle(
-                            color: Colors.white), // Белый текст для кнопки
+                            color: Colors.white),
                       ),
                     ),
                     TextButton(
@@ -283,24 +283,9 @@ class ProfilePageState extends State<ProfilePage> {
               gradient: const LinearGradient(
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
-                colors: [ Color(0xFF000000),Color(0xFF3C0014)],stops: [0.5, 1.0],
+                colors: [Color(0xFF000000), Color(0xFF002C3C)],
+                stops: [0.25, 1.0],
               ),
-            ),
-          ),
-
-          // Фон с изображением
-          Positioned(
-            top: -220,
-            left: 80,
-            right: 0,
-            child: Image.asset(
-              'assets/images/prof.png',
-              width: MediaQuery
-                  .of(context)
-                  .size
-                  .width,
-              height: 700,
-              fit: BoxFit.cover,
             ),
           ),
 
@@ -310,150 +295,308 @@ class ProfilePageState extends State<ProfilePage> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                SizedBox(height: 150),
+                SizedBox(height: 90),
                 // Отступ для аватара
                 Center(
                   child: GestureDetector(
                     onTap: _pickImage,
                     child: CircleAvatar(
-                      radius: 70,
+                      radius: 70, // Размер круга
+                      backgroundColor: Colors.transparent, // Прозрачный фон
                       backgroundImage: _selectedImage != null
                           ? FileImage(_selectedImage!)
                           : (profileImageUrl.isNotEmpty
                           ? NetworkImage(profileImageUrl)
                           : null) as ImageProvider?,
                       child: profileImageUrl.isEmpty && _selectedImage == null
-                          ? const Icon(
-                          Icons.camera_alt, size: 50, color: Colors.white70)
+                          ? ClipOval(
+                        child: Container(
+                          width: 140, // Ширина контейнера
+                          height: 140, // Высота контейнера
+                          decoration: BoxDecoration(
+                            gradient: const LinearGradient(
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                              colors: [Color(0xFF503FFF), Color(0xFFC69EFD)],
+                            ),
+                            border: Border.all( // Добавляем белую рамку
+                              color: Colors.white, // Цвет рамки
+                              width: 1, // Ширина рамки
+                            ),
+                            shape: BoxShape.circle, // Устанавливаем форму круга
+                          ),
+                          child: Align(
+                            alignment: Alignment.center,
+                            child: Image.asset(
+                              'assets/images/avatar.png', // Путь к изображению
+                              width: 100, // Размер изображения (не зависит от круга)
+                              height: 100, // Размер изображения
+                              fit: BoxFit.contain, // Сохраняет пропорции изображения
+                            ),
+                          ),
+                        ),
+                      )
                           : null,
                     ),
                   ),
                 ),
-                SizedBox(height: 45.0),
+                SizedBox(height: 10), // Отступ после аватара
 
-                // Имя пользователя и кнопка редактирования
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      nickname.isNotEmpty ? nickname : 'Без имени',
-                      style: TextStyle(
-                        fontSize: 30,
-                        fontWeight: FontWeight.w400,
-                        color: Colors.white,
-                      ),
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.edit, color: Colors.white),
-                      onPressed: _openEditProfileDialog,
-                    ),
-                  ],
-                ),
-
-                // Электронная почта и дата регистрации
-                SizedBox(height:15.0),
-                Text(
-                  'Email: $email',
-                  style: TextStyle(color: Colors.white, fontSize: 26, fontWeight: FontWeight.w300),
-                ),
-                SizedBox(height: 20.0),
-
-                SizedBox(height: profileFieldSpacing),
-
-                // Лозунг перед кнопкой премиума
-                subscriptionEndDate != null
-                    ? Text(
-                  'Ваша подписка действует до: ${DateFormat('dd.MM.yyyy').format(DateTime.parse(subscriptionEndDate!))}',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w300,
-                    color: Color(0x99FFFFFF),
-                  ),
-                )
-                    : Text(
-                  'Получите дополнительные возможности с премиум-аккаунтом!',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w300,
-                    color: Color(0x99FFFFFF),
-                  ),
-                ),
-
-                SizedBox(height: actionButtonSpacing),
-
-                // Кнопка Premium, растянутая по ширине
-                Center(
-                  child: ElevatedButton(
-                    style: ButtonStyle(
-                      backgroundColor: MaterialStateProperty.all(
-                          Colors.transparent),
-                      elevation: MaterialStateProperty.all(0),
-                      shape: MaterialStateProperty.all(RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(50),
-                      )),
-                      padding: MaterialStateProperty.all(
-                          EdgeInsets.symmetric(vertical: 20)),
-                      minimumSize: MaterialStateProperty.all(
-                          Size(double.infinity, 50)),
-                    ),
-                    onPressed: _goToSubscriptionPage,
-                    child: Ink(
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          colors: [Color(0xFF82A6E8), Color(0xC000BABA), Color(0xFF002FA3)],
-                          begin: Alignment.centerLeft,
-                          end: Alignment.centerRight,
+                // Имя пользователя и email
+                Center(  // Центрируем оба текста
+                  child: Column(
+                    children: [
+                      Text(
+                        nickname.isNotEmpty ? nickname : 'Без имени',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
                         ),
-                        borderRadius: BorderRadius.circular(50),
                       ),
-                      child: Container(
-                        alignment: Alignment.center,
-                        child: Text(
-                          'Premium',
+                      SizedBox(height: 10), // Отступ между текстами
+                      Text(
+                        '$email',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w300,
+                        ),
+                      ),
+                      SizedBox(height: 20), // Отступ перед кнопкой редактирования профиля
+
+                      // Кнопка редактирования профиля
+                      TextButton(
+                        onPressed: _openEditProfileDialog, // Ваше действие
+                        style: TextButton.styleFrom(
+                          backgroundColor: Color(0xFF1E1E1E), // Серый фон
+                          padding: EdgeInsets.symmetric(vertical: 10, horizontal: 16), // Отступы
+                          shape: RoundedRectangleBorder(
+                            side: BorderSide(
+                              color: Color(0xFF2A2A2A), // Цвет бордера
+                              width: 1.0, // Толщина бордера
+                            ),
+                            borderRadius: BorderRadius.circular(12), // Скругленные углы
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min, // Минимальный размер строки
+                          children: [
+                            // Отступ между иконкой и текстом
+                            Text(
+                              'Редактировать профиль',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 10,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                            SizedBox(width: 8),
+                            Icon(
+                              Icons.edit, // Иконка карандаша
+                              color: Colors.white,
+                              size: 20,
+                            ),
+                          ],
+                        ),
+                      ),
+                      SizedBox(height: 20),  // Отступ перед серым блоком
+
+                      // Пустой серый блок с информацией о подписке
+                      // Пустой серый блок с информацией о подписке
+                      Container(
+                        width: 320, // Растягиваем блок на всю ширину
+                        height: 130, // Высота блока
+                        decoration: BoxDecoration(
+                          color: Color(0xFF1E1E1E), // Серый цвет
+                          borderRadius: BorderRadius.circular(12), // Скругленные углы
+                          border: Border.all(
+                            color: Color(0xFF2A2A2A), // Цвет бордера
+                            width: 1.0, // Толщина бордера
+                          ),
+                        ),
+                        padding: EdgeInsets.all(16),
+                        child: subscriptionEndDate != null
+                            ? Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            // Заголовок "Активная подписка" по центру сверху
+                            Align(
+                              alignment: Alignment.topCenter,
+                              child: Text(
+                                'Активная подписка',
+                                style: TextStyle(
+                                  fontSize: 14, // Размер шрифта для заголовка
+                                  fontWeight: FontWeight.bold, // Сделать жирным
+                                  color: Colors.white,
+                                ),
+                              ),
+                            ),
+                            SizedBox(height: 8), // Отступ между заголовком и остальной информацией
+
+                            // Маленький фиолетовый блок с текстом "Premium"
+                            Container(
+                              padding: EdgeInsets.symmetric(vertical: 4, horizontal: 12), // Отступы внутри блока
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(12.0),
+                                gradient: const LinearGradient(
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
+                                  colors: [Color(0xFF503FFF), Color(0xFFC69EFD)],
+                                ),
+                              ),
+                              child: Text(
+                                'Premium',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w700,
+                                  color: Colors.white,
+                                ),
+                              ),
+                            ),
+                            SizedBox(height: 8), // Отступ между блоком "Premium" и датой
+                            Text(
+                              'Активна до: ${DateFormat('dd.MM.yyyy').format(DateTime.parse(subscriptionEndDate!))}',
+                              style: TextStyle(
+                                fontSize: 10,
+                                fontWeight: FontWeight.w300,
+                                color: Colors.white,
+                              ),
+                            ),
+                          ],
+                        )
+                            : Text(
+                          'Получите дополнительные возможности с премиум-аккаунтом!',
                           style: TextStyle(
-                            fontSize: 32,
-                            fontWeight: FontWeight.bold,
+                            fontSize: 18,
+                            fontWeight: FontWeight.w300,
                             color: Colors.white,
                           ),
                         ),
                       ),
+                    ],
+                  ),
+                ),
+                SizedBox(height: 10),
+                // Уведомления и настройки безопасности
+                Center(
+                  child: Container(
+                    width: 320, // Растягиваем блок на всю ширину
+                    padding: EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: Color(0xFF1E1E1E), // Серый фон
+                      borderRadius: BorderRadius.circular(12), // Скругленные углы
+                      border: Border.all(
+                        color: Color(0xFF2A2A2A), // Цвет бордера
+                        width: 1.0, // Толщина бордера
+                      ),
+                    ),
+
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Уведомления с переключателем и иконкой
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Row(
+                              children: [
+                                Icon(
+                                  Icons.notifications,
+                                  color: Colors.white,
+                                  size: 20,
+                                ),
+                                SizedBox(width: 8), // Отступ между иконкой и текстом
+                                Text(
+                                  'Уведомления',
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w300,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            Switch(
+                              value: true, // Замените true на переменную, если требуется логика
+                              onChanged: (value) {
+                                setState(() {
+                                  // Логика изменения состояния
+                                });
+                              },
+                              activeColor: Color(0xFF4A90E2),
+                            ),
+                          ],
+                        ),
+                        SizedBox(height: 10), // Отступ между строками
+
+                        // Пин-код с переключателем и иконкой
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Row(
+                              children: [
+                                Icon(
+                                  Icons.lock,
+                                  color: Colors.white,
+                                  size: 20,
+                                ),
+                                SizedBox(width: 8), // Отступ между иконкой и текстом
+                                Text(
+                                  'Пин-код',
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w300,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            Switch(
+                              value: false, // Замените false на переменную, если требуется логика
+                              onChanged: (value) {
+                                setState(() {
+                                  // Логика изменения состояния
+                                });
+                              },
+                              activeColor: Color(0xFF4A90E2),
+                            ),
+                          ],
+                        ),
+                        SizedBox(height: 10), // Отступ между строками
+
+                        // Кнопка выхода из аккаунта
+                        Center(
+                          child: ElevatedButton.icon(
+                            style: ButtonStyle(
+                              backgroundColor: MaterialStateProperty.all(Color(0xFF2A2A2A)),
+                              shape: MaterialStateProperty.all(RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              )),
+                              padding: MaterialStateProperty.all(
+                                  EdgeInsets.symmetric(vertical: 12, horizontal: 16)),
+                            ),
+                            onPressed: _signOut,
+                            icon: Icon(
+                              Icons.exit_to_app,
+                              color: Colors.white,
+                            ),
+                            label: Text(
+                              'Выйти из аккаунта',
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w400,
+                                color: Colors.white,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ),
-
                 SizedBox(height: 60), // Отступ перед кнопкой выхода
               ],
-            ),
-          ),
-
-          // Кнопка выхода расположена внизу, прямо над панелью навигации
-          Positioned(
-            bottom: 45,
-            right: -15, // Устанавливаем отступ от правого края
-            child: ElevatedButton.icon(
-              style: ButtonStyle(
-                backgroundColor: MaterialStateProperty.all(Colors.transparent),
-                elevation: MaterialStateProperty.all(0),
-                shape: MaterialStateProperty.all(RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(50),
-                )),
-                padding: MaterialStateProperty.all(
-                    EdgeInsets.symmetric(vertical: 18, horizontal: 40)),
-              ),
-              onPressed: _signOut,
-              icon: Icon(
-                Icons.exit_to_app,
-                color: Colors.white,
-                size: 24,
-              ),
-              label: Text(
-                'Выйти',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w400,
-                  color: Colors.white,
-                ),
-              ),
             ),
           ),
         ],

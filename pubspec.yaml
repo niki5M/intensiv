@@ -84,6 +84,7 @@ flutter:
   - assets/images/premium.png
   - assets/images/ex_vniz.png
   - assets/images/in_vverh.png
+  - assets/images/avatar.png
   #   - images/a_dot_ham.jpeg
 
   # An image asset can refer to one or more resolution-specific "variants", see

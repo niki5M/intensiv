@@ -204,8 +204,10 @@ class _UserAccountsPageState extends State<UserAccountsPage> {
 
   @override
   Widget build(BuildContext context) {
+
     return Scaffold(
       body: Column(
+
         children: [
           // Верхняя часть экрана с фоном
           Expanded(
@@ -287,7 +289,7 @@ class _UserAccountsPageState extends State<UserAccountsPage> {
           Expanded(
             flex: 3,
             child: Container(
-              color: Color(0xFF131719),
+              color: Color(0xFF1A1A1A),
               padding: const EdgeInsets.all(16.0),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
