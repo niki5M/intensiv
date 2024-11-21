@@ -9,6 +9,7 @@ import 'package:curved_navigation_bar/curved_navigation_bar.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:intensiv_wise/userHome_page.dart';
 import 'dart:math';
+import 'package:google_fonts/google_fonts.dart';
 
 void main() async {
 
@@ -25,6 +26,7 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       title: 'Flutter Demo',
       theme: ThemeData(
+        textTheme: GoogleFonts.montserratTextTheme(),
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
         useMaterial3: true,
       ),
@@ -494,13 +496,6 @@ class HomePageState extends State<HomePage> {
   @override
   Widget build(BuildContext context) {
     return Container(
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [Color(0xFF060808), Color(0xFF053641)],
-        ),
-      ),
       child: Scaffold(
         extendBody: true, // Эта строка добавлена
         bottomNavigationBar: CurvedNavigationBar(
@@ -511,9 +506,9 @@ class HomePageState extends State<HomePage> {
             Icon(Icons.home, size: 30, color: Colors.white,),
             Icon(Icons.perm_identity, size: 30, color: Colors.white,),
           ],
-          color: Color(0xFF060808),
-          buttonBackgroundColor: Color(0xFF060808),
-          backgroundColor: Colors.transparent,
+          color: Colors.black,
+          buttonBackgroundColor: Colors.black,
+          backgroundColor: Color(0xFF1A1A1A),
           animationCurve: Curves.easeInOut,
           animationDuration: const Duration(milliseconds: 300),
           onTap: (index) {

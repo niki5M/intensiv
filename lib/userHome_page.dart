@@ -228,7 +228,7 @@ class _UserAccountsPageState extends State<UserAccountsPage> {
                         'SpendWise',
                         style: TextStyle(
                           color: Colors.white,
-                          fontSize: 35,
+                          fontSize: 22,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
@@ -370,16 +370,20 @@ class _UserAccountsPageState extends State<UserAccountsPage> {
           left: 15.0, right: 15.0, top: 110.0, bottom: 35.0),
       decoration: BoxDecoration(
         gradient: LinearGradient(
+          colors: [Color(0xFF202020), Color(0xFF070707)], // Градиент от темного к светлому
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [Color(0xFF82A6E8), Color(0xC000BABA), Color(0xFF002FA3)],
         ),
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(10),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.6),
+            color: Colors.black.withOpacity(0.6), // Более насыщенная тень для объема
+            blurRadius: 12, // Увеличенная размытие для большего эффекта
+            offset: const Offset(-4, -4), // Смещение тени для объема
+          ),
+          BoxShadow(
+            color: Colors.white.withOpacity(0.1), // Светлая тень для дополнительного объема
             blurRadius: 10,
-            spreadRadius: 5,
             offset: const Offset(4, 4),
           ),
         ],
@@ -395,10 +399,10 @@ class _UserAccountsPageState extends State<UserAccountsPage> {
                   fontWeight: FontWeight.bold,
                   color: Colors.black),
             ),
-            const SizedBox(height: 70),
+            const SizedBox(height: 50),
             Text(
-              ' ₽${account['balance'].toStringAsFixed(2)}',
-              style: const TextStyle(fontSize: 39,  fontWeight: FontWeight.bold,),
+              '${account['balance'].toStringAsFixed(2)}',
+              style: const TextStyle(color: Colors.white70, fontSize: 25,  fontWeight: FontWeight.bold),
             ),
           ],
         ),
