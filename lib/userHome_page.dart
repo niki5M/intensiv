@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
 
+import 'diagram_page.dart';
+
 class UserAccountsPage extends StatefulWidget {
   const UserAccountsPage({Key? key}) : super(key: key);
 
@@ -202,6 +204,9 @@ class _UserAccountsPageState extends State<UserAccountsPage> {
     }
   }
 
+
+
+
   @override
   Widget build(BuildContext context) {
 
@@ -293,7 +298,6 @@ class _UserAccountsPageState extends State<UserAccountsPage> {
               padding: const EdgeInsets.all(16.0),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
-
                 children: [
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -309,54 +313,66 @@ class _UserAccountsPageState extends State<UserAccountsPage> {
                       ElevatedButton(
                         onPressed: _showAddTransactionModal,
                         style: ElevatedButton.styleFrom(
-                          foregroundColor: Color(0xFF717171) , backgroundColor: const Color(
-                            0xFF000000), // Цвет текста кнопки
+                          foregroundColor: Color(0xFF717171),
+                          backgroundColor: const Color(0xFF000000), // Цвет текста кнопки
                         ),
                         child: const Text('Добавить'),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 0),
-                  Expanded(
-                    child: ListView.builder(
-
-                      itemCount: localTransactions.length,
-                      itemBuilder: (context, index) {
-                        final transaction = localTransactions[index];
-                        return ListTile(
-                          leading: transaction['transactionType'] == 'Расход'
-                              ? const Icon(
-                              Icons.money_off, color: Color(0xFF6E0534), size: 30)
-                              : const Icon(
-                              Icons.attach_money, color: Color(0xFF166778), size: 30),
-                          title: Text(
-                            '${transaction['category']}',
-                            style: const TextStyle(
-                              color: Colors.white70,
-                              fontSize: 21,
-                            ),
-                          ),
-                          subtitle: Text(
-                            '${transaction['transactionType']}',
-                            style: const TextStyle(
-                              color: Colors.white38,
-                              fontSize: 18,
-                            ),
-                          ),
-                          trailing: Text(
-                            '₽${transaction['amount'].toStringAsFixed(2)}',
-                            style: TextStyle(
-                              color: transaction['transactionType'] == 'Расход'
-                                  ? const Color(0xFF8E0844) // Красный для расхода
-                                  : const Color(0xFF26E6E6), // Голубой для дохода
-                              fontSize: 24,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        );
-                      },
-                    ),
-                  )
+                  const SizedBox(height: 20),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      // Кнопка для анализа
+                      ElevatedButton(
+                        onPressed: () {
+                          if (selectedAccount != null) {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) =>
+                                    DiagramTransactionsPage(selectedAccount: selectedAccount!),
+                              ),
+                            );
+                          } else {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('Выберите счёт для анализа.')),
+                            );
+                          }
+                        },
+                        style: ElevatedButton.styleFrom(
+                          foregroundColor: Color(0xFF717171),
+                          backgroundColor: const Color(0xFF000000),
+                        ),
+                        child: const Text('Анализ'),
+                      ),
+                      // Можно добавить дополнительные кнопки для других видов анализа
+                      ElevatedButton(
+                        onPressed: () {
+                          if (selectedAccount != null) {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) =>
+                                    DiagramTransactionsPage(selectedAccount: selectedAccount!),
+                              ),
+                            );
+                              } else {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text(
+                                  'Анализ по категориям не реализован')),
+                            );
+                          }
+                        },
+                        style: ElevatedButton.styleFrom(
+                          foregroundColor: Color(0xFF717171),
+                          backgroundColor: const Color(0xFF000000),
+                        ),
+                        child: const Text('Другой анализ'),
+                      ),
+                    ],
+                  ),
                 ],
               ),
             ),
@@ -367,46 +383,57 @@ class _UserAccountsPageState extends State<UserAccountsPage> {
   }
 
   Widget _buildBankCard(Map<String, dynamic> account) {
-    return Container(
-      margin: const EdgeInsets.only(
-          left: 15.0, right: 15.0, top: 110.0, bottom: 35.0),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [Color(0xFF202020), Color(0xFF070707)], // Градиент от темного к светлому
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(10),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.6), // Более насыщенная тень для объема
-            blurRadius: 12, // Увеличенная размытие для большего эффекта
-            offset: const Offset(-4, -4), // Смещение тени для объема
+    return GestureDetector(
+      onTap: () {
+        // Переход на страницу диаграммы
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => DiagramTransactionsPage(selectedAccount: account),
           ),
-          BoxShadow(
-            color: Colors.white.withOpacity(0.1), // Светлая тень для дополнительного объема
-            blurRadius: 10,
-            offset: const Offset(4, 4),
+        );
+      },
+      child: Container(
+        margin: const EdgeInsets.only(
+            left: 15.0, right: 15.0, top: 110.0, bottom: 35.0),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: [Color(0xFF202020), Color(0xFF070707)], // Градиент от темного к светлому
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
           ),
-        ],
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              account['accountType'],
-              style: const TextStyle(fontSize: 30,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.black),
+          borderRadius: BorderRadius.circular(10),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.6), // Более насыщенная тень для объема
+              blurRadius: 12, // Увеличенная размытие для большего эффекта
+              offset: const Offset(-4, -4), // Смещение тени для объема
             ),
-            const SizedBox(height: 50),
-            Text(
-              '${account['balance'].toStringAsFixed(2)}',
-              style: const TextStyle(color: Colors.white70, fontSize: 25,  fontWeight: FontWeight.bold),
+            BoxShadow(
+              color: Colors.white.withOpacity(0.1), // Светлая тень для дополнительного объема
+              blurRadius: 10,
+              offset: const Offset(4, 4),
             ),
           ],
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                account['accountType'],
+                style: const TextStyle(fontSize: 30,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.black),
+              ),
+              const SizedBox(height: 50),
+              Text(
+                '${account['balance'].toStringAsFixed(2)}',
+                style: const TextStyle(color: Colors.white70, fontSize: 25, fontWeight: FontWeight.bold),
+              ),
+            ],
+          ),
         ),
       ),
     );

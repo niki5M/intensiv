@@ -98,10 +98,14 @@ class ProfilePageState extends State<ProfilePage> {
 
     if (confirm == true) {
       try {
-        await FirebaseAuth.instance.signOut();
-        // Переход на SplashScreen после выхода
-        Navigator.pushReplacementNamed(context, '/splash');
+        await FirebaseAuth.instance.signOut(); // Выход из Firebase
+        Navigator.pushNamedAndRemoveUntil(
+          context,
+          '/login', // Перенаправление на страницу входа
+              (route) => false,
+        );
       } catch (e) {
+        // Обработка ошибок при выходе
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Ошибка выхода: $e')),
         );
@@ -283,7 +287,7 @@ class ProfilePageState extends State<ProfilePage> {
               gradient: const LinearGradient(
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
-                colors: [Color(0xFF000000), Color(0xFF002C3C)],
+                colors: [Color(0xFF000000),  Color(0xFF006F77)],
                 stops: [0.25, 1.0],
               ),
             ),
@@ -551,6 +555,47 @@ class ProfilePageState extends State<ProfilePage> {
                                   ),
                                 ),
                               ],
+                            ),
+                            // Иконка для перехода на страницу добавления пин-кода
+                            IconButton(
+                              icon: Icon(
+                                Icons.arrow_forward_ios, // Иконка стрелки для перехода
+                                color: Colors.white,
+                                size: 20,
+                              ),
+                              onPressed: () async {
+                                // Проверяем, есть ли пин-код у пользователя в Firestore
+                                User? user = FirebaseAuth.instance.currentUser;
+                                if (user != null) {
+                                  try {
+                                    // Загружаем данные пользователя из Firestore
+                                    DocumentSnapshot snapshot = await FirebaseFirestore.instance
+                                        .collection('customers')
+                                        .doc(user.uid)
+                                        .get();
+
+                                    if (snapshot.exists && snapshot['pinCode'] == null) {
+                                      // Если пин-код отсутствует, переходим на страницу добавления
+                                      Navigator.pushNamed(context, '/setPinCode');
+                                    } else {
+                                      // Если пин-код уже установлен, ничего не делаем
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        const SnackBar(content: Text('Пин-код уже установлен')),
+                                      );
+                                    }
+                                  } catch (e) {
+                                    print('Ошибка при проверке пин-кода: $e');
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(content: Text('Ошибка при проверке пин-кода')),
+                                    );
+                                  }
+                                } else {
+                                  // Если пользователь не авторизован
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(content: Text('Пользователь не авторизован')),
+                                  );
+                                }
+                              },
                             ),
                             Switch(
                               value: false, // Замените false на переменную, если требуется логика

@@ -125,7 +125,7 @@ class _AllTransactionsPageState extends State<AllTransactionsPage> {
         foregroundColor: Colors.white,
         elevation: 0,
       ),
-      backgroundColor: Colors.black, // Темно-серый фон
+      backgroundColor: Colors.black,
       body: Column(
         children: [
           // Раздел для отображения сумм доходов и расходов

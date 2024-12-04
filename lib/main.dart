@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:intensiv_wise/login_page.dart';
+import 'package:intensiv_wise/pin_code_screen.dart';
 import 'package:intensiv_wise/profile.dart';
 import 'package:intensiv_wise/user_list_page.dart';
 import 'package:curved_navigation_bar/curved_navigation_bar.dart';
@@ -11,8 +12,9 @@ import 'package:intensiv_wise/userHome_page.dart';
 import 'dart:math';
 import 'package:google_fonts/google_fonts.dart';
 
-void main() async {
+import 'GoalsAndProjectionsPage.dart';
 
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp();
   runApp(const MyApp());
@@ -30,19 +32,56 @@ class MyApp extends StatelessWidget {
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
         useMaterial3: true,
       ),
-      initialRoute: '/',
+      home: const InitialScreen(), // Указываем экран проверки авторизации
       routes: {
-        '/': (context) => const SplashScreen(),
         '/login': (context) => const LoginPage(),
         '/home': (context) => const HomePage(),
         '/profile': (context) => const ProfilePage(),
         '/userList': (context) => const AllTransactionsPage(),
-        '/splash': (context) => const SplashScreen(),
+        '/pin': (context) => const PinCodeScreen(),
       },
     );
   }
 }
 
+class InitialScreen extends StatelessWidget {
+  const InitialScreen({super.key});
+
+  Future<Widget> _determineStartScreen() async {
+    User? user = FirebaseAuth.instance.currentUser;
+
+    if (user != null) {
+      // Если пользователь авторизован, показываем экран ввода пин-кода
+      return const PinCodeScreen();
+    } else {
+      // Если пользователь не авторизован, показываем SplashScreen
+      return const SplashScreen();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<Widget>(
+      future: _determineStartScreen(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          // Показываем загрузку, пока определяется стартовый экран
+          return const Scaffold(
+            body: Center(child: CircularProgressIndicator()),
+          );
+        }
+
+        if (snapshot.hasData) {
+          return snapshot.data!;
+        } else {
+          return const Scaffold(
+            body: Center(child: Text('Ошибка загрузки')),
+          );
+        }
+      },
+    );
+  }
+}
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
 
@@ -72,29 +111,19 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
   void initState() {
     super.initState();
 
-    // Инициализация анимационного контроллера
     _controller = AnimationController(
       vsync: this,
       duration: const Duration(seconds: 10),
-    )
-      ..repeat(reverse: true);
+    )..repeat(reverse: true);
   }
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
 
-    // Получаем размеры экрана
-    screenWidth = MediaQuery
-        .of(context)
-        .size
-        .width;
-    screenHeight = MediaQuery
-        .of(context)
-        .size
-        .height;
+    screenWidth = MediaQuery.of(context).size.width;
+    screenHeight = MediaQuery.of(context).size.height;
 
-    // Инициализация анимаций смещения
     _circle1Animation = _createRandomOffsetAnimation();
     _circle2Animation = _createRandomOffsetAnimation();
   }
@@ -110,7 +139,6 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
   }
 
   Offset _randomOffset() {
-    // Генерация случайных координат по всему экрану
     return Offset(
       _random.nextDouble() * screenWidth,
       _random.nextDouble() * screenHeight,
@@ -123,10 +151,12 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
         _currentPage++;
       });
     } else {
-      Navigator.pushReplacementNamed(context, '/login');
+      // Определяем, куда переходить: Login или PinCode
+      FirebaseAuth.instance.currentUser == null
+          ? Navigator.pushReplacementNamed(context, '/login')
+          : Navigator.pushReplacementNamed(context, '/pin');
     }
   }
-
   @override
   void dispose() {
     _controller.dispose();
@@ -293,27 +323,21 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
                       ),
                       AnimatedContainer(
                         duration: const Duration(milliseconds: 300),
-                        width: _currentPage == cards.length - 1 ? 200 : 50,
-                        height: 50,
+                        width: _currentPage == cards.length - 1 ? 155 : 155,
+                        height: 55,
                         decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(25.0),
-                          gradient: const LinearGradient(
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                            colors: [Color(0xFF503FFF), Color(0xFFC69EFD)],
-                          ),
+                          color: const Color(0xFFFFFFFF),
+                          borderRadius: BorderRadius.circular(18.0),
                         ),
                         child: InkWell(
                           onTap: _onNextPage,
-                          child: Center(
+                          child: const Center(
                             child: Text(
-                              _currentPage == cards.length - 1
-                                  ? 'Continue'
-                                  : '>',
-                              style: const TextStyle(
-                                color: Colors.white,
+                              'Get Started',
+                              style: TextStyle(
                                 fontSize: 20,
-                                fontWeight: FontWeight.bold,
+                                fontWeight: FontWeight.w800,
+                                color: Color(0xFF1E1E1E),
                               ),
                             ),
                           ),
@@ -330,7 +354,177 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
     );
   }
 }
-  class HomePage extends StatefulWidget {
+
+class PinCodeScreen extends StatefulWidget {
+  const PinCodeScreen({super.key});
+
+  @override
+  _PinCodeScreenState createState() => _PinCodeScreenState();
+}
+
+class _PinCodeScreenState extends State<PinCodeScreen> {
+  final TextEditingController _pinController = TextEditingController();
+
+  // Функция для проверки пин-кода в Firestore
+  Future<void> _verifyPin() async {
+    String enteredPin = _pinController.text;
+    User? user = FirebaseAuth.instance.currentUser;
+
+    if (user == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Пожалуйста, войдите в систему.')),
+      );
+      return;
+    }
+
+    try {
+      // Ищем документ, где поле `userId` совпадает с UID текущего пользователя
+      QuerySnapshot userSnapshot = await FirebaseFirestore.instance
+          .collection('users')
+          .where('userId', isEqualTo: user.uid) // Условие поиска
+          .get();
+
+      if (userSnapshot.docs.isNotEmpty) {
+        // Предполагаем, что документ один (только один пользователь с таким UID)
+        DocumentSnapshot userDoc = userSnapshot.docs.first;
+
+        // Получаем пин-код из документа
+        String storedPin = userDoc['pin'] ?? '';
+
+        if (enteredPin == storedPin) {
+          // Пин-код верный, переходим на главный экран
+          Navigator.pushReplacementNamed(context, '/home');
+        } else {
+          // Сообщаем об ошибке
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Неверный пин-код!')),
+          );
+        }
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Пользователь не найден.')),
+        );
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Ошибка: $e')),
+      );
+    }
+  }
+
+  // Функция для добавления цифры в поле пин-кода
+  void _addDigit(String digit) {
+    if (_pinController.text.length < 4) {
+      _pinController.text += digit;
+      _pinController.selection = TextSelection.collapsed(offset: _pinController.text.length);
+    }
+  }
+
+  // Функция для удаления последнего символа
+  void _deleteDigit() {
+    if (_pinController.text.isNotEmpty) {
+      _pinController.text = _pinController.text.substring(0, _pinController.text.length - 1);
+      _pinController.selection = TextSelection.collapsed(offset: _pinController.text.length);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.black, // Черный фон
+      appBar: AppBar(
+        backgroundColor: Colors.black,
+        title: const Text('Введите Пин-код', style: TextStyle(color: Colors.white)),
+      ),
+      body: Padding(
+        padding: const EdgeInsets.all(20.0),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            // Поле для ввода пин-кода
+            TextField(
+              controller: _pinController,
+              keyboardType: TextInputType.number,
+              obscureText: true,
+              decoration: const InputDecoration(
+                labelText: 'Пин-код',
+                labelStyle: TextStyle(color: Colors.white),
+                border: OutlineInputBorder(),
+                focusedBorder: OutlineInputBorder(
+                  borderSide: BorderSide(color: Colors.white),
+                ),
+              ),
+              style: const TextStyle(color: Colors.white, fontSize: 24),
+              maxLength: 4,
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 20),
+            // Панель с кнопками
+            GridView.builder(
+              shrinkWrap: true,
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 3,
+                crossAxisSpacing: 10,
+                mainAxisSpacing: 10,
+              ),
+              itemCount: 12, // 9 цифр + кнопка удаления и кнопка для подтверждения
+              itemBuilder: (context, index) {
+                String label;
+                if (index < 9) {
+                  label = (index + 1).toString();
+                } else if (index == 9) {
+                  label = '0';
+                } else if (index == 10) {
+                  label = '←'; // Кнопка удаления
+                } else {
+                  label = 'Войти'; // Кнопка для проверки пин-кода
+                }
+
+                return GestureDetector(
+                  onTap: () {
+                    if (index < 9) {
+                      _addDigit(label); // Добавляем цифру
+                    } else if (index == 9) {
+                      _addDigit(label); // Добавляем 0
+                    } else if (index == 10) {
+                      _deleteDigit(); // Удаляем последнюю цифру
+                    } else {
+                      _verifyPin(); // Проверяем пин-код
+                    }
+                  },
+                  child: Container(
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(80),
+                      border: Border.all(
+                        width: 2.0,
+                        color: Colors.transparent, // Цвет фона обводки
+                      ),
+                      gradient: const LinearGradient(
+                        colors: [Colors.black, Colors.grey],
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                      ),
+                    ),
+                    child: Center(
+                      child: Text(
+                        label,
+                        style: const TextStyle(
+                          fontSize: 24,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                  ),
+                );
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+class HomePage extends StatefulWidget {
   const HomePage({super.key});
 
   @override
@@ -493,6 +687,10 @@ class HomePageState extends State<HomePage> {
     return const ProfilePage();
   }
 
+  Widget _buildGoalsPage() {
+    return RemindersPage(); // Ваша существующая страница целей
+  }
+
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -502,9 +700,10 @@ class HomePageState extends State<HomePage> {
           index: _currentIndex,
           height: 50.0,
           items: const <Widget>[
-            Icon(Icons.supervised_user_circle_rounded, size: 30, color: Colors.white,),
-            Icon(Icons.home, size: 30, color: Colors.white,),
-            Icon(Icons.perm_identity, size: 30, color: Colors.white,),
+            Icon(Icons.supervised_user_circle_rounded, size: 30, color: Colors.white),
+            Icon(Icons.home, size: 30, color: Colors.white),
+            Icon(Icons.perm_identity, size: 30, color: Colors.white),
+            Icon(Icons.flag, size: 30, color: Colors.white), // Новая кнопка для целей
           ],
           color: Colors.black,
           buttonBackgroundColor: Colors.black,
@@ -523,9 +722,11 @@ class HomePageState extends State<HomePage> {
             _buildUserListPage(),
             _buildUserHomePage(),
             _buildProfilePage(),
+            _buildGoalsPage(), // Новая страница для целей
           ],
         ),
       ),
     );
   }
+
 }
